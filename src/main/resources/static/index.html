@@ -297,6 +297,8 @@ async function init(){
   $('org').onchange=()=>{st.ov={};st.sel.clear();st.cache={};st.it.list=null;st.it.id=null;st.it.d=null;loadPlan()};
   ['start','days','onhand'].forEach(id=>$(id).onchange=()=>loadPlan());
   $('reload').onclick=()=>{st.cache={};loadPlan()};
+  // 화면이 열려 있는 동안 9분마다 가벼운 요청 → 무료 호스팅(15분 무요청 시 절전)이 잠들지 않게
+  setInterval(()=>fetch('/api/info',{cache:'no-store'}).catch(()=>{}),9*60*1000);
   window.onhashchange=()=>{const k=location.hash.slice(1);if(PG[k]&&k!==st.page){st.page=k;render();lazy()}};
   await loadPlan();
 }
