@@ -265,14 +265,21 @@ const st={info:{},orgs:[],plan:null,ov:{},sel:new Set(),busy:0,page:PG[location.
   it:{q:'',mb:'',list:null,id:null,d:null,tab:'main'}};
 
 /* ---------- API ---------- */
+let slowToast=null;
 async function api(path,opt){
   st.busy++;$('prog').hidden=false;
+  // 응답이 4초 넘게 걸리면 (무료 서버가 깨어나는 중일 수 있음) 안내 표시
+  const slowTimer=setTimeout(()=>{if(!slowToast){slowToast=document.createElement('div');slowToast.className='toast';
+    slowToast.textContent='서버를 준비하는 중입니다… 무료 호스팅이라 처음 접속 시 최대 1분 정도 걸릴 수 있습니다.';$('toasts').appendChild(slowToast)}},4000);
   try{
     const r=await fetch(path,opt);const t=await r.text();let j=null;
     try{j=t?JSON.parse(t):null}catch(e){j={message:t}}
     if(!r.ok)throw new Error((j&&j.message)||r.statusText);
     return j;
-  }finally{if(--st.busy===0)$('prog').hidden=true}
+  }finally{
+    clearTimeout(slowTimer);
+    if(--st.busy===0){$('prog').hidden=true;if(slowToast){slowToast.remove();slowToast=null}}
+  }
 }
 const send=(m,p,b)=>api(p,{method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
 const orgId=()=>Number($('org').value);

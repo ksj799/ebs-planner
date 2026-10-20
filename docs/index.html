@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EBS Planner 데모</title>
+<meta name="description" content="Oracle EBS 테이블 구조 기반 생산계획 웹 – 라이브 데모 안내">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{--bg:#f4f6fa;--panel:#fff;--text:#0f172a;--text2:#475569;--muted:#94a3b8;--line:#e2e8f0;--accent:#4f46e5;--accent2:#eef2ff;--ok:#059669}
+@media (prefers-color-scheme: dark){:root{--bg:#0b1120;--panel:#111827;--text:#e5e7eb;--text2:#9ca3af;--muted:#6b7280;--line:#1f2937;--accent:#818cf8;--accent2:#1e1b4b;--ok:#34d399}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 Pretendard,"Malgun Gothic",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:48px 16px 64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;color:var(--text2)}
+.logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center}
+h1{font-size:28px;line-height:1.3;margin:20px 0 8px;letter-spacing:-.02em}
+.lead{color:var(--text2);margin:0 0 28px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.status{display:flex;align-items:center;gap:12px;font-weight:600;font-size:16px}
+.spin{width:20px;height:20px;border:3px solid var(--accent2);border-top-color:var(--accent);border-radius:50%;animation:sp .9s linear infinite;flex:none}
+.done .spin{animation:none;border-color:var(--ok);background:var(--ok)}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar{height:8px;background:var(--accent2);border-radius:99px;overflow:hidden;margin:16px 0 10px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .8s linear}
+.done .bar i{background:var(--ok)}
+.note{color:var(--text2);font-size:14px;margin:0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.btn{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--panel)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.shot{margin-top:28px}
+.shot img{width:100%;border-radius:12px;border:1px solid var(--line);display:block}
+.shot p{color:var(--muted);font-size:13px;margin:8px 0 0}
+ul{color:var(--text2);padding-left:20px;margin:24px 0 0}
+@media (max-width:560px){.wrap{padding-top:28px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="logo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M3 21V9l6 4V9l6 4V5h6v16z"/></svg></div>EBS Planner</div>
+  <h1>Oracle EBS 기반 생산계획 웹 – 라이브 데모</h1>
+  <p class="lead">수주 → 자재(BOM·구매 리드타임) → 능력(병목 자원)까지 계산하는 유한능력 생산계획 프로그램입니다. 모든 데이터는 가상 데이터입니다.</p>
+
+  <div class="card" id="card">
+    <div class="status"><span class="spin"></span><span id="msg">데모 서버 상태를 확인하는 중…</span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <p class="note" id="sub">무료 호스팅을 사용해, 한동안 접속이 없었다면 서버를 깨우는 데 <b>최대 1분</b> 정도 걸립니다. 준비되면 자동으로 이동합니다.</p>
+    <div class="actions">
+      <a class="btn pri" id="go" href="https://ebs-planner.onrender.com/">데모 바로 열기</a>
+      <a class="btn" href="https://github.com/ksj799/ebs-planner">소스 코드 (GitHub)</a>
+    </div>
+  </div>
+
+  <div class="shot">
+    <img src="screenshots/01-dashboard.jpg" alt="대시보드 화면 미리보기">
+    <p>대시보드 미리보기 – 미출하 수주, 납기 지연 예상, 자재 대기, 자원 부하율</p>
+  </div>
+  <ul>
+    <li>생산계획: 자원별 간트 차트와 일별 부하율, 수량·시작일 수정 시 즉시 재계산</li>
+    <li>자재 소요: 1단계 BOM 구매부품 수급, 리드타임을 반영한 구매 제안</li>
+    <li>품목 정보: Oracle 품목 화면의 일반 계획 · MPS/MRP 계획 · 리드타임 탭</li>
+  </ul>
+</div>
+<script>
+const APP='https://ebs-planner.onrender.com/';
+const msg=document.getElementById('msg'),sub=document.getElementById('sub'),bar=document.getElementById('bar'),card=document.getElementById('card');
+const t0=Date.now(),EXPECT=60000;
+let done=false,slow=false;
+const tick=setInterval(()=>{if(done)return;const p=Math.min(95,(Date.now()-t0)/EXPECT*100);bar.style.width=p+'%';
+  if(!slow&&Date.now()-t0>3000){slow=true;msg.textContent='서버를 깨우는 중입니다… (최대 1분)'}
+  if(Date.now()-t0>EXPECT+30000){msg.textContent='평소보다 오래 걸리고 있습니다. "데모 바로 열기"를 눌러 주세요.'}},500);
+async function check(){
+  if(done)return;
+  try{
+    const r=await fetch(APP+'api/info',{cache:'no-store'});
+    const j=await r.json();
+    if(r.ok&&j&&'demo' in j){ready();return}
+  }catch(e){}
+  setTimeout(check,3000);
+}
+function ready(){
+  done=true;clearInterval(tick);bar.style.width='100%';card.classList.add('done');
+  msg.textContent='준비 완료! 데모로 이동합니다…';sub.textContent='자동으로 이동하지 않으면 아래 버튼을 눌러 주세요.';
+  setTimeout(()=>location.href=APP,slow?1200:400);
+}
+check();
+</script>
+</body>
+</html>

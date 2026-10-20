@@ -3,10 +3,11 @@
 > **Oracle E-Business Suite(Discrete Manufacturing) 표준 테이블 구조를 그대로 읽어**
 > 수주 → 자재 → 능력까지 한 번에 계산하는 **유한능력 생산계획 웹 애플리케이션**입니다.
 
-### 🔗 라이브 데모: **https://ebs-planner.onrender.com**
+### 🔗 라이브 데모: **https://ksj799.github.io/ebs-planner/**
 
 - 로그인 없이 바로 볼 수 있습니다. 모든 데이터는 **가상 데이터**이며 실행일 기준으로 자동 생성됩니다.
-- 무료 호스팅이라 오래 접속이 없었다면 첫 화면까지 최대 1분 정도 걸릴 수 있습니다.
+- 무료 호스팅이라 서버가 잠들어 있으면 깨우는 데 최대 1분 걸립니다. 위 주소는 **진행 상황을 보여 주다가 준비되면 자동으로 데모로 이동**합니다.
+  (앱 직접 주소: https://ebs-planner.onrender.com)
 
 ![대시보드](docs/screenshots/01-dashboard.jpg)
 
