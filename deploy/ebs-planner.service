@@ -1,0 +1,19 @@
+[Unit]
+Description=EBS Planner (portfolio demo)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=planner
+Group=planner
+EnvironmentFile=/etc/ebs-planner.env
+ExecStart=/usr/bin/java -Xmx512m -Dfile.encoding=UTF-8 -jar /opt/ebs-planner/app.jar --spring.profiles.active=portfolio
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

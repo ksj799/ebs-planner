@@ -1,0 +1,16 @@
+# EBS 없이 실행해 보는 데모: EBS 테이블을 흉내 낸 H2 인메모리 DB
+spring:
+  datasource:
+    url: jdbc:h2:mem:ebs;MODE=Oracle;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      schema-locations: classpath:demo/schema.sql
+      data-locations: classpath:demo/calendar.sql,classpath:demo/data.sql,classpath:demo/item_attributes.sql
+
+planner:
+  user-id: 1001
+  store-path: ${user.home}/.ebs-planner/demo-settings.json

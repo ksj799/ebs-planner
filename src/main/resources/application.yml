@@ -1,0 +1,41 @@
+server:
+  # EBS 에 쓰기를 하는 프로그램이므로 기본은 본인 PC 에서만 접속 가능. 공유하려면 0.0.0.0 + 인증 추가
+  address: 127.0.0.1
+  port: 8080
+
+spring:
+  datasource:
+    # 예) jdbc:oracle:thin:@//ebs-db-host:1521/EBSTEST
+    url: ${EBS_DB_URL:}
+    username: ${EBS_DB_USER:apps}
+    password: ${EBS_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 15000
+  jdbc:
+    template:
+      # Oracle JDBC 기본 fetch 크기(10행)는 원격 DB 에서 왕복이 너무 많다
+      fetch-size: 500
+  sql:
+    init:
+      mode: never
+
+planner:
+  source-code: XXPP
+  # FND_USER.USER_ID  (SELECT user_id FROM fnd_user WHERE user_name = 'XXX')
+  user-id: ${EBS_USER_ID:}
+  wip:
+    status-type: 1          # 1=미해제, 3=해제
+    scheduling-method: 1    # 1=라우팅 기준(EBS 가 시작일부터 일정 계산), 3=수동(계획 시작/완료일 그대로)
+    class-code:             # 비우면 WIP_PARAMETERS.DEFAULT_DISCRETE_CLASS
+    start-time: "08:00"
+    completion-time: "17:00"
+  mass-load:
+    submit: false           # true 면 적재 후 WIP Mass Load(WICMLP) 를 바로 제출
+    resp-id: ${EBS_RESP_ID:}
+    resp-appl-id: 706       # WIP
+    validation-level: "0"
+    print-report: "2"
+  planning:
+    default-hours-per-day: 8
+    max-days: 180

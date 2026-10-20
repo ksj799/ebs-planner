@@ -1,0 +1,22 @@
+# 포트폴리오 공개용: Oracle Autonomous DB(Always Free) 의 가상 데이터 스키마를 조회 전용 계정으로 읽는다
+#   EBS_DB_URL      : jdbc:oracle:thin:@(description=...)  ← ADB 콘솔 "데이터베이스 연결" 의 TLS 연결 문자열
+#   EBS_DB_USER     : EBSAPP (SELECT 권한만)
+#   EBS_DB_PASSWORD : EBSAPP 비밀번호
+spring:
+  datasource:
+    username: ${EBS_DB_USER:EBSAPP}
+    hikari:
+      # 테이블은 EBSDEMO 소유 → 이름 앞에 스키마를 붙이지 않고 조회하도록
+      connection-init-sql: ALTER SESSION SET CURRENT_SCHEMA = EBSDEMO
+      maximum-pool-size: 4
+
+server:
+  # 앞단 Caddy(HTTPS) 를 거쳐서만 접속
+  address: 127.0.0.1
+  forward-headers-strategy: framework
+
+planner:
+  user-id:
+  # 비우면 리드타임·입고예정일 수정값을 메모리에만 둔다 (재시작 시 초기화, 방문자끼리 공유)
+  store-path: ""
+  banner: "포트폴리오 데모 – 모든 데이터는 가상 데이터이며 매일 03:00(KST) 초기화됩니다"

@@ -1,0 +1,12 @@
+# 외부 공개 데모 (Render 등 무료 호스팅): demo 프로파일(H2 내장 DB + 가상 데이터)과 함께 켠다
+#   --spring.profiles.active=demo,public
+server:
+  # 호스팅 플랫폼이 넣어 주는 PORT 로, 모든 주소에서 접속 받기
+  address: 0.0.0.0
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+planner:
+  # 수정값은 메모리에만 (재시작하면 초기화)
+  store-path: ""
+  banner: "포트폴리오 데모 – 모든 데이터는 가상 데이터이며, 서버가 다시 시작되면 오늘 날짜 기준으로 초기화됩니다"

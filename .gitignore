@@ -1,0 +1,12 @@
+target/
+*.log
+.idea/
+.vscode/
+.claude/
+
+# 회사 환경 전용 – 공개 저장소에 올리지 않음
+run-crp.ps1
+
+# 접속 정보
+*.env
+!deploy/planner.env.example

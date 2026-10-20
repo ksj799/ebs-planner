@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EBS 생산계획</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg:#f4f6fa;--panel:#fff;--panel2:#f8fafc;--text:#0f172a;--text2:#475569;--muted:#94a3b8;--line:#e2e8f0;--line2:#eef2f7;
+  --accent:#4f46e5;--accent2:#eef2ff;--accent-t:#4338ca;--ok:#059669;--ok2:#ecfdf5;--warn:#b45309;--warn2:#fef3c7;--bad:#dc2626;--bad2:#fef2f2;
+  --info:#0369a1;--info2:#e0f2fe;--gray2:#f1f5f9;
+  --side:#0f172a;--side-t:#94a3b8;--side-h:#e2e8f0;--side-a:#1e293b;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 1px 3px rgba(15,23,42,.06);--r:12px;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0b1120;--panel:#111827;--panel2:#0f172a;--text:#e5e7eb;--text2:#9ca3af;--muted:#6b7280;--line:#1f2937;--line2:#172033;
+  --accent:#818cf8;--accent2:#1e1b4b;--accent-t:#a5b4fc;--ok:#34d399;--ok2:#052e22;--warn:#fbbf24;--warn2:#2b1d05;--bad:#f87171;--bad2:#2c0f12;
+  --info:#7dd3fc;--info2:#082f49;--gray2:#1f2937;--side:#020617;--side-a:#111827;--shadow:none}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13.5px/1.5 Pretendard,"Malgun Gothic",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}
+
+/* sidebar */
+.side{background:var(--side);color:var(--side-t);padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 10px 18px;color:#fff;font-weight:700;font-size:15px}
+.brand .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center}
+.nav-g{font-size:11px;letter-spacing:.06em;color:#64748b;padding:14px 10px 6px;font-weight:600}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--side-t);text-decoration:none;cursor:pointer;margin-bottom:1px}
+.nav a:hover{background:var(--side-a);color:var(--side-h)}
+.nav a.on{background:var(--side-a);color:#fff;font-weight:600}
+.nav a svg{width:17px;height:17px;flex:none;opacity:.85}
+.nav a .cnt{margin-left:auto;font-size:11px;background:#334155;color:#e2e8f0;border-radius:99px;padding:0 7px;line-height:18px}
+.nav a .cnt.bad{background:#7f1d1d;color:#fecaca}
+.side-foot{margin-top:auto;padding:12px 10px 0;border-top:1px solid #1e293b;font-size:12px}
+.conn{display:flex;align-items:center;gap:8px}.dot{width:8px;height:8px;border-radius:50%;background:#22c55e}.dot.demo{background:#f59e0b}
+
+/* top */
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.top h1{font-size:19px;margin:0;font-weight:700;letter-spacing:-.01em}
+.top .sub{color:var(--text2);font-size:12.5px;margin-top:1px}
+.ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.field{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:0 4px 0 10px;height:34px}
+.field label{font-size:12px;color:var(--text2);white-space:nowrap}
+.field select,.field input{border:0;background:transparent;height:32px;outline:none;padding:0 4px}
+.progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
+.progress i{display:block;height:100%;width:30%;background:var(--accent);animation:pg 1s infinite ease-in-out}
+@keyframes pg{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+.view{padding:22px 28px 60px;max-width:1680px;width:100%}
+
+/* common */
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:9px;border:1px solid transparent;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.btn.sec{background:var(--panel);color:var(--text);border-color:var(--line)}.btn.sec:hover{background:var(--panel2)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px;border-radius:7px}
+.btn.icon{width:28px;padding:0;justify-content:center}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--text2);user-select:none}
+.switch input{appearance:none;width:32px;height:18px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:.15s;margin:0}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px #0003}
+.switch input:checked{background:var(--accent)}.switch input:checked::after{left:16px}
+.seg{display:inline-flex;background:var(--gray2);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--text2);font-weight:500}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:var(--shadow);font-weight:600}
+
+.grid{display:grid;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi .l{color:var(--text2);font-size:12.5px;font-weight:500}
+.kpi .v{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{color:var(--muted);font-size:12px;margin-top:2px}
+.kpi.bad .v{color:var(--bad)}.kpi.warn .v{color:var(--warn)}.kpi.ok .v{color:var(--ok)}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line)}
+.kpi.bad::before{background:var(--bad)}.kpi.warn::before{background:#f59e0b}.kpi.ok::before{background:var(--ok)}.kpi.acc::before{background:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:18px;min-width:0}
+.ph{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.ph h2{font-size:14.5px;margin:0;font-weight:700}
+.ph .d{color:var(--muted);font-size:12px}
+.ph .acts{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pb{padding:14px 18px}
+.pb.flush{padding:0}
+
+.tag{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap;line-height:19px}
+.tag.gray{background:var(--gray2);color:var(--text2)}.tag.acc{background:var(--accent2);color:var(--accent-t)}
+.tag.ok{background:var(--ok2);color:var(--ok)}.tag.warn{background:var(--warn2);color:var(--warn)}.tag.bad{background:var(--bad2);color:var(--bad)}.tag.info{background:var(--info2);color:var(--info)}
+.muted{color:var(--muted)}.t2{color:var(--text2)}.small{font-size:12px}.b{font-weight:600}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+
+/* table */
+.tw{min-width:0}
+.tt{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.search{height:32px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:0 10px 0 30px;min-width:220px;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2394a3b8' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.search:focus,.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent2)}
+.tt .cnt{color:var(--muted);font-size:12px}
+.ts{overflow:auto;max-height:calc(100vh - 260px)}
+table.t{border-collapse:separate;border-spacing:0;width:100%}
+table.t th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--text2);font-weight:600;font-size:12px;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th.sortable{cursor:pointer}table.t th.sortable:hover{color:var(--text)}
+table.t td{padding:8px 12px;border-bottom:1px solid var(--line2);white-space:nowrap;vertical-align:middle}
+table.t tbody tr:hover td{background:var(--panel2)}
+table.t tr.hl td{background:color-mix(in srgb,var(--bad2) 55%,transparent)}
+table.t tr.sel td{background:color-mix(in srgb,var(--accent2) 70%,transparent)}
+.num{text-align:right!important;font-variant-numeric:tabular-nums}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+.inp{height:28px;border:1px solid var(--line);border-radius:7px;background:var(--panel);padding:0 8px;outline:none}
+.inp.n{width:88px;text-align:right}.inp.lt{width:58px;text-align:right}
+.inp.set{border-color:var(--accent);background:var(--accent2)}
+.item .c{font-weight:600}.item .d{color:var(--text2);font-size:12px;display:block;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.bar{height:8px;background:var(--gray2);border-radius:99px;overflow:hidden;min-width:120px}
+.bar>i{display:block;height:100%;border-radius:99px;background:var(--accent)}.bar>i.hi{background:#f59e0b}.bar>i.ov{background:var(--bad)}
+
+/* gantt */
+.gw{overflow:auto;max-height:calc(100vh - 230px)}
+table.g{border-collapse:separate;border-spacing:0;font-size:12px}
+table.g th,table.g td{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);min-width:52px;height:34px;text-align:center;padding:0 3px}
+table.g thead th{position:sticky;top:0;z-index:3;background:var(--panel2);color:var(--text2);font-weight:600;line-height:1.25;height:42px}
+table.g .lbl{position:sticky;left:0;z-index:2;background:var(--panel);text-align:left;min-width:290px;max-width:290px;padding:0 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.g thead .lbl{z-index:4;background:var(--panel2)}
+table.g .we{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--line2) 5px 6px)}
+table.g thead .we{color:var(--muted)}
+table.g .today{box-shadow:inset 2px 0 0 var(--accent)}
+table.g tr.res td{background:var(--panel2);font-weight:700;height:30px}
+table.g tr.res td.lbl{background:var(--panel2)}
+.chip{display:block;border-radius:6px;padding:3px 2px;font-weight:600;font-variant-numeric:tabular-nums}
+.chip.ex{background:var(--gray2);color:var(--text2)}
+.chip.pl{background:var(--accent2);color:var(--accent-t)}
+.chip.late{background:var(--bad2);color:var(--bad)}
+.chip.wait{background:repeating-linear-gradient(135deg,var(--warn2) 0 4px,transparent 4px 8px);height:8px;padding:0}
+td.due{box-shadow:inset 0 -3px 0 #f59e0b}
+.ld{font-size:11.5px;border-radius:5px;padding:2px 0;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:16px;height:10px;border-radius:3px}
+
+.relbar{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;background:var(--panel);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
+.alerts .a{display:flex;gap:12px;align-items:flex-start;padding:11px 18px;border-bottom:1px solid var(--line2)}
+.alerts .a:last-child{border-bottom:0}
+.alerts .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none;font-weight:700;font-size:13px}
+.ic.bad{background:var(--bad2);color:var(--bad)}.ic.warn{background:var(--warn2);color:var(--warn)}.ic.info{background:var(--info2);color:var(--info)}
+.banner{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;background:var(--warn2);color:var(--warn)}
+.banner.bad{background:var(--bad2);color:var(--bad)}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px}
+.toasts{position:fixed;right:20px;bottom:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--text);color:var(--panel);padding:10px 16px;border-radius:10px;box-shadow:0 8px 24px #0003;font-weight:500;max-width:440px;animation:tin .2s}
+.toast.bad{background:var(--bad);color:#fff}
+@keyframes tin{from{transform:translateY(8px);opacity:0}}
+dialog{border:0;border-radius:16px;background:var(--panel);color:var(--text);padding:0;width:min(520px,calc(100vw - 32px));box-shadow:0 24px 48px #0004}
+dialog::backdrop{background:#0f172a80;backdrop-filter:blur(2px)}
+dialog .dh{padding:18px 22px 6px;font-size:16px;font-weight:700}
+dialog .db{padding:6px 22px 4px;color:var(--text2)}
+dialog .df{display:flex;justify-content:flex-end;gap:8px;padding:16px 22px}
+dl.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;margin:10px 0}
+dl.kv dt{color:var(--muted)}dl.kv dd{margin:0;color:var(--text);font-weight:500}
+
+/* item */
+.ip{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;align-items:start}
+.il{max-height:calc(100vh - 250px);overflow:auto}
+.il-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line2);cursor:pointer}
+.il-row:hover{background:var(--panel2)}.il-row.on{background:var(--accent2)}
+.il-row .m{flex:1;min-width:0}.il-row .m .c{font-weight:600}.il-row .m .d{color:var(--text2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ih{padding:18px 20px;border-bottom:1px solid var(--line2)}
+.ih .code{font-size:20px;font-weight:700;font-family:inherit;letter-spacing:-.01em}
+.ih .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.sup{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));border-bottom:1px solid var(--line2)}
+.sup div{padding:12px 20px;border-right:1px solid var(--line2)}.sup div:last-child{border-right:0}
+.sup .l{font-size:12px;color:var(--text2)}.sup .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:12px 12px 10px;cursor:pointer;color:var(--text2);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--accent-t);border-bottom-color:var(--accent);font-weight:700}
+.fs{padding:16px 20px 4px}
+.fs h3{font-size:12.5px;margin:0 0 10px;color:var(--text2);font-weight:700;display:flex;gap:8px;align-items:center}
+.fs h3::after{content:"";flex:1;height:1px;background:var(--line2)}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 18px;margin-bottom:12px}
+.f label{display:block;font-size:12px;color:var(--text2);margin-bottom:3px}
+.f label small{color:var(--muted);margin-left:5px;font-size:11px}
+.fv{min-height:32px;display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);font-weight:500;font-variant-numeric:tabular-nums}
+.fv.empty{color:var(--muted);font-weight:400}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--muted);display:inline-grid;place-items:center;font-size:11px;color:#fff;flex:none}
+.cb.on{background:var(--accent);border-color:var(--accent)}
+.ltbar{display:flex;height:30px;border-radius:8px;overflow:hidden;margin:4px 0 6px;font-size:12px;font-weight:600}
+.ltbar div{display:grid;place-items:center;color:#fff;min-width:34px;white-space:nowrap}
+a.lnk{color:inherit;cursor:pointer;text-decoration:none;border-bottom:1px dashed var(--muted)}a.lnk:hover{color:var(--accent-t);border-color:var(--accent)}
+@media (max-width:1100px){.two,.ip{grid-template-columns:1fr}}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:static;height:auto;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;gap:4px}
+  .brand{padding:0 8px 0 0}.brand span,.nav-g,.side-foot{display:none}
+  .nav{display:flex;gap:2px}.nav a{white-space:nowrap;padding:7px 10px}.nav a svg{display:none}
+  .top{padding:12px 16px}.view{padding:16px}.ctl{margin-left:0}
+  table.g .lbl{min-width:180px;max-width:180px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M3 21V9l6 4V9l6 4V5h6v16z"/></svg></div><span>EBS 생산계획</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot" id="foot"></div>
+  </aside>
+  <div class="main">
+    <header class="top" id="top">
+      <div><h1 id="title">대시보드</h1><div class="sub" id="subtitle"></div></div>
+      <div class="ctl">
+        <div class="field"><label>조직</label><select id="org"></select></div>
+        <div class="field"><label>시작일</label><input type="date" id="start"></div>
+        <div class="field"><label>기간</label><select id="days"><option value="14">2주</option><option value="28" selected>4주</option><option value="42">6주</option><option value="60">2개월</option><option value="90">3개월</option></select></div>
+        <label class="switch"><input type="checkbox" id="onhand" checked>완제품 현재고 차감</label>
+        <button class="btn" id="reload"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>재계산</button>
+      </div>
+      <div class="progress" id="prog" hidden><i></i></div>
+    </header>
+    <section class="view" id="view"></section>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+<dialog id="dlg"></dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n0=v=>v==null||v===''?'':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:2});
+const ymd=d=>{const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`};
+const TODAY=ymd(new Date());
+const WD=['일','월','화','수','목','금','토'];
+const fd=s=>{if(!s)return '';const d=new Date(s+'T00:00');return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`};
+const item=(c,d,id)=>`<span class="item">${id?`<a class="c lnk" onclick="openItem(${id})" title="품목 정보 열기">${esc(c)}</a>`:`<span class="c">${esc(c)}</span>`}<span class="d" title="${esc(d)}">${esc(d)}</span></span>`;
+const tag=(t,c)=>`<span class="tag ${c}">${esc(t)}</span>`;
+
+const I={ /* 아이콘 */
+ dash:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+ plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h5M7 17h9"/>',
+ mat:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+ po:'<path d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>',
+ inv:'<path d="M4 7h16v13H4zM2 3h20v4H2zM10 11h4"/>',
+ dem:'<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/>',
+ item:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+ job:'<path d="M14.7 6.3a4 4 0 0 0-5.6 5.6L3 18l3 3 6.1-6.1a4 4 0 0 0 5.6-5.6l-2.5 2.5-3-3z"/>',
+ his:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+ mas:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
+const PAGES=[
+ {g:'계획'},
+ {k:'dash',t:'대시보드',i:'dash',sub:'계획 현황과 주의가 필요한 항목'},
+ {k:'plan',t:'생산계획',i:'plan',sub:'병목 자원 기준 유한능력 일정 · 계획 작업지시 생성'},
+ {k:'mat',t:'자재 소요',i:'mat',sub:'구매부품 수급 · 자재 대기 · 구매 제안'},
+ {g:'구매 · 재고'},
+ {k:'po',t:'구매 입고예정',i:'po',sub:'PO 납품일정 입고예정일 · 품목 리드타임 설정'},
+ {k:'inv',t:'현재고',i:'inv',sub:'MTL_ONHAND_QUANTITIES_DETAIL · 보관장소/로케이터/로트별'},
+ {g:'EBS'},
+ {k:'dem',t:'수요 (수주)',i:'dem',sub:'OE_ORDER_LINES_ALL 미출하 수주라인'},
+ {k:'job',t:'작업지시',i:'job',sub:'WIP_DISCRETE_JOBS 미완료 · 처리대기 인터페이스'},
+ {k:'his',t:'생성 이력',i:'his',sub:'WIP_JOB_SCHEDULE_INTERFACE 적재 · Mass Load 결과'},
+ {g:'기준정보'},
+ {k:'item',t:'품목 정보',i:'item',sub:'MTL_SYSTEM_ITEMS_B · 일반 계획 / MPS·MRP 계획 / 리드타임 / 재공'},
+ {k:'mas',t:'자원 · 캘린더',i:'mas',sub:'자원 능력 · 품목별 병목 자원 · 휴무일'}];
+const PG=Object.fromEntries(PAGES.filter(p=>p.k).map(p=>[p.k,p]));
+
+const st={info:{},orgs:[],plan:null,ov:{},sel:new Set(),busy:0,page:PG[location.hash.slice(1)]?location.hash.slice(1):'dash',
+  statusType:1,classCode:'',cache:{},t:{},poTab:'po',invMode:'detail',invSub:'',invNet:false,
+  it:{q:'',mb:'',list:null,id:null,d:null,tab:'main'}};
+
+/* ---------- API ---------- */
+async function api(path,opt){
+  st.busy++;$('prog').hidden=false;
+  try{
+    const r=await fetch(path,opt);const t=await r.text();let j=null;
+    try{j=t?JSON.parse(t):null}catch(e){j={message:t}}
+    if(!r.ok)throw new Error((j&&j.message)||r.statusText);
+    return j;
+  }finally{if(--st.busy===0)$('prog').hidden=true}
+}
+const send=(m,p,b)=>api(p,{method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+const orgId=()=>Number($('org').value);
+const req=()=>({orgId:orgId(),start:$('start').value,days:Number($('days').value),netOnhand:$('onhand').checked,overrides:st.ov});
+function toast(m,bad){const e=document.createElement('div');e.className='toast'+(bad?' bad':'');e.textContent=m;$('toasts').appendChild(e);setTimeout(()=>e.remove(),bad?7000:3500)}
+
+async function init(){
+  $('start').value=TODAY;
+  try{
+    st.info=await api('/api/info');
+    st.statusType=st.info.statusType||1;st.classCode=st.info.classCode||'';
+    st.orgs=await api('/api/orgs');
+    $('org').innerHTML=st.orgs.map(o=>`<option value="${o.organizationId}">${esc(o.code)} · ${esc(o.name)}</option>`).join('');
+  }catch(e){$('view').innerHTML=`<div class="banner bad">초기화 실패: ${esc(e.message)}</div>`;return}
+  const bannerText=st.info.banner||(st.info.demo?'데모 모드 – 화면의 데이터는 모두 가상의 샘플입니다 (CRP/운영 EBS 아님)':'');
+  if(bannerText){const b=document.createElement('div');
+    b.style.cssText=`background:${st.info.banner?'#4f46e5':'#dc2626'};color:#fff;text-align:center;padding:7px 12px;font-weight:700;font-size:13px;position:sticky;top:0;z-index:50`;
+    b.textContent=bannerText;document.body.prepend(b)}
+  $('foot').innerHTML=`<div class="conn"><span class="dot ${st.info.demo?'demo':''}"></span>${st.info.demo?'데모 (H2)':'EBS 연결됨'}</div>
+    <div class="muted" style="margin-top:6px">${st.info.readOnly||!st.info.userConfigured?'조회 전용 (DB 반영 안 함)':'SOURCE_CODE '+esc(st.info.sourceCode)}</div>`;
+  if(!st.orgs.length){$('view').innerHTML='<div class="banner bad">WIP 사용 조직(WIP_PARAMETERS)이 없습니다.</div>';return}
+  $('org').onchange=()=>{st.ov={};st.sel.clear();st.cache={};st.it.list=null;st.it.id=null;st.it.d=null;loadPlan()};
+  ['start','days','onhand'].forEach(id=>$(id).onchange=()=>loadPlan());
+  $('reload').onclick=()=>{st.cache={};loadPlan()};
+  window.onhashchange=()=>{const k=location.hash.slice(1);if(PG[k]&&k!==st.page){st.page=k;render();lazy()}};
+  await loadPlan();
+}
+async function loadPlan(){
+  try{
+    st.plan=await send('POST','/api/plan',req());
+    const ids=new Set(st.plan.planned.map(p=>p.id));st.sel=new Set([...st.sel].filter(i=>ids.has(i)));
+  }catch(e){toast('계획 계산 실패: '+e.message,1)}
+  render();lazy();
+}
+async function lazy(){
+  const p=st.page,o=orgId(),c=st.cache;
+  if(p==='item'){if(!st.it.list)await loadItems();if(st.it.id&&!st.it.d)await loadItem(st.it.id);return}
+  const need={po:'purchasing',inv:'onhand',his:'interface',mas:'master'}[p];
+  if(!need||c[need])return;
+  try{c[need]=await api(`/api/${need}?orgId=${o}`);render()}catch(e){toast(e.message,1)}
+}
+function go(k){location.hash=k}
+
+/* ---------- 공통 렌더 ---------- */
+function render(){
+  const P=st.plan;
+  const badge={plan:P&&P.planned.length,mat:P&&P.purchases.length,dem:P&&P.demands.length};
+  const bad={plan:P&&P.planned.some(p=>p.late),mat:P&&P.purchases.some(p=>p.late)};
+  $('nav').innerHTML=PAGES.map(p=>p.g?`<div class="nav-g">${p.g}</div>`:
+    `<a class="${p.k===st.page?'on':''}" onclick="go('${p.k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${I[p.i]}</svg>${p.t}${badge[p.k]?`<span class="cnt ${bad[p.k]?'bad':''}">${badge[p.k]}</span>`:''}</a>`).join('');
+  const pg=PG[st.page];$('title').textContent=pg.t;$('subtitle').textContent=pg.sub;document.title=pg.t+' · EBS 생산계획';
+  if(!P){$('view').innerHTML='<div class="empty">계산 중…</div>';return}
+  const warn=P.warnings.length?`<div class="banner"><b>확인 필요</b>${P.warnings.map(esc).join(' · ')}</div>`:'';
+  $('view').innerHTML=(['dash','plan','mat'].includes(st.page)?warn:'')+V[st.page]();
+}
+
+const TBL={};
+function tbl(id,cols,rows,o={}){
+  TBL[id]={cols,rows,o};
+  const s=st.t[id]||(st.t[id]={q:'',k:o.sort??null,d:o.dir||1});
+  return `<div class="tw">${o.search===false?'':`<div class="tt"><input class="search" placeholder="${esc(o.ph||'검색')}" value="${esc(s.q)}" oninput="tq('${id}',this.value)"><span class="cnt" id="tc-${id}"></span>${o.tools||''}</div>`}
+  <div class="ts" id="tb-${id}" ${o.maxh?`style="max-height:${o.maxh}"`:''}>${tbody(id)}</div></div>`;
+}
+function tbody(id){
+  const {cols,rows,o}=TBL[id],s=st.t[id];let r=rows;
+  if(s.q){const q=s.q.toLowerCase();r=r.filter(x=>(o.text?o.text(x):Object.values(x).filter(v=>typeof v!=='object').join(' ')).toLowerCase().includes(q))}
+  if(s.k!=null){const c=cols.find(c=>c.k===s.k);if(c){const f=c.v||(x=>x[c.k]);r=[...r].sort((a,b)=>{const x=f(a),y=f(b);if(x==null)return 1;if(y==null)return -1;return (x<y?-1:x>y?1:0)*s.d})}}
+  setTimeout(()=>{const e=$('tc-'+id);if(e)e.textContent=`${r.length.toLocaleString()}건`});
+  if(!r.length)return `<div class="empty">${o.empty||'데이터가 없습니다'}</div>`;
+  return `<table class="t"><thead><tr>${cols.map(c=>{const so=c.k!=null&&c.sort!==false;
+    return `<th class="${c.num?'num':''} ${so?'sortable':''}" ${so?`onclick="tsort('${id}','${c.k}')"`:''}>${c.l}${s.k===c.k&&so?(s.d>0?' ↑':' ↓'):''}</th>`}).join('')}</tr></thead>
+   <tbody>${r.map(x=>`<tr class="${o.rc?o.rc(x):''}">${cols.map(c=>`<td class="${c.num?'num':''}">${c.h?c.h(x):esc(x[c.k])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function tq(id,v){st.t[id].q=v;$('tb-'+id).innerHTML=tbody(id)}
+function tsort(id,k){const s=st.t[id];if(s.k===k)s.d=-s.d;else{s.k=k;s.d=1}$('tb-'+id).innerHTML=tbody(id)}
+const panel=(title,desc,body,acts='',flush=true)=>`<div class="panel"><div class="ph"><h2>${title}</h2>${desc?`<span class="d">${desc}</span>`:''}<div class="acts">${acts}</div></div><div class="pb ${flush?'flush':''}">${body}</div></div>`;
+const kpi=(l,v,s,c='')=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s||'&nbsp;'}</div></div>`;
+const resName=k=>{const r=st.plan.resources.find(x=>x.key===k);return r?`${r.departmentCode}/${r.resourceCode}`:'–'};
+function loadPct(r){const wd=st.plan.days.filter(d=>d.work).map(d=>d.date);const cap=r.hoursPerDay*wd.length;return cap?wd.reduce((s,d)=>s+(r.load[d]||0),0)/cap*100:0}
+const pbar=p=>`<div class="bar"><i class="${p>100?'ov':p>85?'hi':''}" style="width:${Math.min(p,100)}%"></i></div>`;
+function jobState(p){
+  if(!p.releasable)return tag('일정불가','bad');
+  if(!p.resourceKey)return tag('라우팅없음','warn');
+  if(p.late)return tag('납기지연','bad');
+  if(p.materialReady)return tag('자재대기','warn');
+  return tag('정상','ok');
+}
+
+/* ---------- 화면 ---------- */
+const V={};
+
+V.dash=()=>{
+  const P=st.plan,late=P.planned.filter(p=>p.late),wait=P.planned.filter(p=>p.materialReady),urg=P.purchases.filter(p=>p.late);
+  const short=P.demands.filter(d=>d.shortQty>0);
+  const alerts=[
+    ...late.map(p=>({c:'bad',i:'!',t:`SO ${p.orderNumber}-${p.lineRef} · ${p.itemCode} 납기 지연`,d:`납기 ${fd(p.due)} → 완료예정 ${p.finish?fd(p.finish):'미정'}${p.materialReady?` · 자재 가용 ${fd(p.materialReady)}`:''}`,go:'plan'})),
+    ...urg.map(s=>({c:'warn',i:'P',t:`${s.itemCode} 긴급 구매 필요 ${n0(s.qty)} ${s.uom}`,d:`필요 ${fd(s.needDate)} · 리드타임상 최초 가용 ${fd(s.availableDate)} · ${s.forRef}`,go:'mat'})),
+    ...wait.filter(p=>!p.late).map(p=>({c:'info',i:'M',t:`SO ${p.orderNumber}-${p.lineRef} 자재 대기`,d:p.materialNotes.join(', '),go:'mat'}))];
+  return `<div class="kpis">
+    ${kpi('미출하 수주라인',P.demands.length,`공급 부족 ${short.length}건`,'acc')}
+    ${kpi('계획 작업지시',P.planned.length,`총 ${n0(P.planned.reduce((s,p)=>s+p.qty,0))} · 선택 ${st.sel.size}건`,'acc')}
+    ${kpi('납기 지연 예상',late.length,late.length?'일정·자재 확인 필요':'모두 납기 내',late.length?'bad':'ok')}
+    ${kpi('자재 대기',wait.length,'구매부품 입고 후 시작',wait.length?'warn':'ok')}
+    ${kpi('구매 제안',P.purchases.length,`리드타임 부족 ${urg.length}건`,urg.length?'bad':'')}
+  </div>
+  <div class="two">
+    ${panel('주의 필요',`${alerts.length}건`,alerts.length?`<div class="alerts">${alerts.slice(0,12).map(a=>`<div class="a"><span class="ic ${a.c}">${a.i}</span><div style="flex:1;min-width:0"><div class="b">${esc(a.t)}</div><div class="small t2">${esc(a.d)}</div></div><button class="btn sec sm" onclick="go('${a.go}')">보기</button></div>`).join('')}</div>`:'<div class="empty">특이사항 없음</div>')}
+    ${panel('자원 부하율',`${fd(P.start)} ~ ${fd(P.end)}`,`<table class="t"><thead><tr><th>부서/자원</th><th class="num">일 능력</th><th style="width:45%">부하</th><th class="num">%</th></tr></thead><tbody>
+      ${P.resources.map(r=>{const p=loadPct(r);return `<tr><td><span class="b">${esc(r.departmentCode)}/${esc(r.resourceCode)}</span> <span class="muted small">${esc(r.description)}</span></td><td class="num">${n0(r.hoursPerDay)}h</td><td>${pbar(p)}</td><td class="num b">${p.toFixed(0)}%</td></tr>`}).join('')}</tbody></table>`)}
+  </div>`;
+};
+
+V.plan=()=>{
+  const P=st.plan,days=P.days;
+  const head=days.map(d=>`<th class="${d.work?'':'we'} ${d.date===TODAY?'today':''}">${Number(d.date.slice(8))}<br><span style="font-weight:500">${WD[new Date(d.date+'T00:00').getDay()]}</span></th>`).join('');
+  const cells=(x,cls)=>days.map(d=>{const q=x.daily[d.date];
+    const wait=cls==='pl'&&x.materialReady&&d.date>=P.start&&d.date<x.materialReady&&d.date>=(st.ov[x.id]?.start||P.start);
+    const late=cls==='pl'&&q&&d.date>x.due;
+    return `<td class="${d.work?'':'we'} ${d.date===TODAY?'today':''} ${cls==='pl'&&d.date===x.due?'due':''}">${q?`<span class="chip ${cls} ${late?'late':''}">${n0(Math.round(q))}</span>`:wait&&d.work?'<span class="chip wait" title="자재 대기"></span>':''}</td>`}).join('');
+  let rows='';
+  for(const k of [...P.resources.map(r=>r.key),null]){
+    const ex=P.existing.filter(s=>(s.resourceKey||null)===k),pl=P.planned.filter(p=>(p.resourceKey||null)===k);
+    if(k===null&&!ex.length&&!pl.length)continue;
+    if(k){const r=P.resources.find(x=>x.key===k);
+      rows+=`<tr class="res"><td class="lbl">${esc(r.departmentCode)}/${esc(r.resourceCode)} <span class="muted" style="font-weight:500">· ${n0(r.hoursPerDay)}h/일</span></td>${days.map(d=>{const u=(r.load[d.date]||0)/r.hoursPerDay*100;
+        const bg=u>100.5?'var(--bad2)':u>85?'var(--warn2)':u>0?'var(--accent2)':'';const fg=u>100.5?'var(--bad)':u>85?'var(--warn)':'var(--accent-t)';
+        return `<td class="${d.work?'':'we'}">${u?`<span class="ld" style="background:${bg};color:${fg}">${u.toFixed(0)}%</span>`:''}</td>`}).join('')}</tr>`;
+    }else rows+=`<tr class="res"><td class="lbl">라우팅 없음 <span class="muted" style="font-weight:500">· 부하 미반영</span></td>${days.map(d=>`<td class="${d.work?'':'we'}"></td>`).join('')}</tr>`;
+    for(const s of ex)rows+=`<tr><td class="lbl" title="${esc(s.itemDesc)}">${tag(s.source==='WIP'?'EBS':'IF','gray')} <span class="b">${esc(s.ref)}</span> <span class="muted">${esc(s.itemCode)} · ${n0(s.remainQty)}</span></td>${cells(s,'ex')}</tr>`;
+    for(const p of pl)rows+=`<tr><td class="lbl" title="${esc(p.itemDesc)}"><input type="checkbox" ${st.sel.has(p.id)?'checked':''} ${p.releasable?'':'disabled'} onchange="tog('${p.id}',this.checked)" style="vertical-align:-2px"> <span class="b">SO ${esc(p.orderNumber)}-${esc(p.lineRef)}</span> <span class="muted">${esc(p.itemCode)} · ${n0(p.qty)}</span></td>${cells(p,'pl')}</tr>`;
+  }
+  const legend=`<div class="legend"><span><i style="background:var(--gray2)"></i>기존 작업지시</span><span><i style="background:var(--accent2)"></i>계획 작업지시</span><span><i style="background:var(--bad2)"></i>납기 초과</span><span><i style="background:repeating-linear-gradient(135deg,var(--warn2) 0 3px,transparent 3px 6px)"></i>자재 대기</span><span><i style="box-shadow:inset 0 -3px 0 #f59e0b;background:var(--panel2)"></i>납기일</span><span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 4px)"></i>휴무</span></div>`;
+  const cols=[
+    {l:`<input type="checkbox" onclick="event.stopPropagation()" onchange="togAll(this.checked)" ${P.planned.filter(p=>p.releasable).every(p=>st.sel.has(p.id))&&P.planned.length?'checked':''}>`,h:p=>`<input type="checkbox" ${st.sel.has(p.id)?'checked':''} ${p.releasable?'':'disabled'} onchange="tog('${p.id}',this.checked)">`,sort:false},
+    {k:'orderNumber',l:'수주',h:p=>`<span class="b">${esc(p.orderNumber)}-${esc(p.lineRef)}</span>`},
+    {k:'customer',l:'고객'},
+    {k:'itemCode',l:'품목',h:p=>item(p.itemCode,p.itemDesc,p.itemId)},
+    {k:'resourceKey',l:'병목자원',h:p=>p.resourceKey?esc(resName(p.resourceKey)):'<span class="muted">–</span>'},
+    {k:'suggestedQty',l:'제안',num:1,h:p=>n0(p.suggestedQty)},
+    {k:'qty',l:'수량',num:1,h:p=>`<input class="inp n ${st.ov[p.id]?.qty!=null?'set':''}" type="number" min="0" step="any" value="${st.ov[p.id]?.qty??''}" placeholder="${p.qty}" onchange="setOv('${p.id}','qty',this.value)">`},
+    {k:'start',l:'시작',h:p=>`<input class="inp ${st.ov[p.id]?.start?'set':''}" type="date" value="${st.ov[p.id]?.start||p.start||''}" onchange="setOv('${p.id}','start',this.value)">`},
+    {k:'materialReady',l:'자재 가용',h:p=>p.materialReady?`<span title="${esc(p.materialNotes.join(', '))}">${tag(fd(p.materialReady),'warn')}</span>`:'<span class="muted">즉시</span>'},
+    {k:'finish',l:'완료예정',h:p=>p.finish?`<span class="${p.late?'b':''}" style="${p.late?'color:var(--bad)':''}">${fd(p.finish)}</span>`:'<span class="muted">–</span>'},
+    {k:'due',l:'납기',h:p=>fd(p.due)},
+    {k:'hours',l:'부하(h)',num:1,h:p=>n0(p.hours)},
+    {k:'late',l:'상태',v:p=>p.late?0:p.materialReady?1:2,h:jobState},
+    {k:'note',l:'비고',h:p=>`<span class="small muted">${esc(p.note||'')}</span>`}];
+  const I2=st.info,n=st.sel.size;
+  return panel('생산 일정',`${fd(P.start)} ~ ${fd(P.end)}`,`<div class="gw"><table class="g"><thead><tr><th class="lbl">자원 / 작업지시</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`,legend)
+   +`<div class="panel"><div class="ph"><h2>계획 작업지시</h2><span class="d">수량·시작일을 고치면 바로 재계산됩니다</span><div class="acts">${Object.keys(st.ov).length?`<button class="btn sec sm" onclick="st.ov={};loadPlan()">수정값 초기화</button>`:''}</div></div>
+     ${tbl('planned',cols,P.planned,{ph:'수주·품목·고객 검색',rc:p=>st.sel.has(p.id)?'sel':p.late?'hl':'',text:p=>[p.orderNumber,p.lineRef,p.customer,p.itemCode,p.itemDesc].join(' '),empty:'계획할 부족분이 없습니다'})}
+     ${I2.readOnly?`<div class="relbar">${tag('조회 전용','gray')}<span class="small t2">EBS 작업지시 생성(DB 반영) 기능은 비활성화되어 있습니다. 화면의 계획은 조회·검토용입니다.</span></div>`:`<div class="relbar"><b>${n}건 선택</b>
+      <div class="field"><label>생성 상태</label><select onchange="st.statusType=+this.value"><option value="1" ${st.statusType==1?'selected':''}>1 미해제</option><option value="3" ${st.statusType==3?'selected':''}>3 해제</option></select></div>
+      <div class="field"><label>회계 클래스</label><input style="width:90px" placeholder="${esc(P.org.defaultClass||'기본')}" value="${esc(st.classCode)}" onchange="st.classCode=this.value"></div>
+      <button class="btn" ${n&&I2.userConfigured?'':'disabled'} onclick="confirmRelease()">EBS 작업지시 생성</button>
+      <span class="small muted">${!I2.userConfigured?'planner.user-id 미설정 – 조회 전용':I2.submitMassLoad?'적재 후 WIP Mass Load 자동 제출':'인터페이스 적재 (Mass Load 는 EBS 에서 실행)'}</span></div>`}</div>`;
+};
+
+V.mat=()=>{
+  const P=st.plan,wait=P.planned.filter(p=>p.materialReady),urg=P.purchases.filter(p=>p.late);
+  const short=P.materials.filter(m=>m.shortage>0);
+  const mc=[
+    {k:'itemCode',l:'구매부품',h:m=>item(m.itemCode,m.itemDesc,m.itemId)},
+    {k:'uom',l:'단위'},
+    {k:'onhand',l:'현재고',num:1,h:m=>n0(m.onhand)},
+    {k:'poQty',l:'PO 미입고',num:1,h:m=>n0(m.poQty)},
+    {k:'wipReq',l:'기존 작업지시 소요',num:1,h:m=>n0(m.wipReq)},
+    {k:'plannedReq',l:'계획 소요',num:1,h:m=>n0(m.plannedReq)},
+    {k:'shortage',l:'부족',num:1,h:m=>m.shortage>0?`<span class="b" style="color:var(--bad)">${n0(m.shortage)}</span>`:'<span class="muted">0</span>'},
+    {k:'suggestedQty',l:'구매 제안',num:1,h:m=>m.suggestedQty?n0(m.suggestedQty):''},
+    {k:'totalLt',l:'총 LT(일)',num:1},
+    {k:'firstShortDate',l:'최초 부족일',h:m=>fd(m.firstShortDate)}];
+  const pc=[
+    {k:'orderBy',l:'발주 착수일',h:s=>`<span class="b" style="${s.late?'color:var(--bad)':''}">${fd(s.orderBy)}</span>`},
+    {k:'itemCode',l:'품목',h:s=>item(s.itemCode,s.itemDesc,s.itemId)},
+    {k:'qty',l:'제안 수량',num:1,h:s=>`<span class="b">${n0(s.qty)}</span> <span class="muted small">${esc(s.uom)}</span>`},
+    {k:'shortQty',l:'부족량',num:1,h:s=>n0(s.shortQty)},
+    {k:'receiptDate',l:'입고 예정',h:s=>fd(s.receiptDate)},
+    {k:'availableDate',l:'사용 가능',h:s=>fd(s.availableDate)},
+    {k:'needDate',l:'필요일',h:s=>fd(s.needDate)},
+    {k:'late',l:'상태',v:s=>s.late?0:1,h:s=>s.late?tag('리드타임 부족','bad'):tag('정상','ok')},
+    {k:'forRef',l:'소요처',h:s=>`<span class="small">${esc(s.forRef)}</span>`}];
+  const wc=[
+    {k:'orderNumber',l:'수주',h:p=>`<span class="b">${esc(p.orderNumber)}-${esc(p.lineRef)}</span>`},
+    {k:'itemCode',l:'품목',h:p=>item(p.itemCode,p.itemDesc,p.itemId)},
+    {k:'qty',l:'수량',num:1,h:p=>n0(p.qty)},
+    {k:'materialReady',l:'자재 가용',h:p=>tag(fd(p.materialReady),'warn')},
+    {k:'start',l:'시작',h:p=>fd(p.start)},{k:'finish',l:'완료예정',h:p=>fd(p.finish)},{k:'due',l:'납기',h:p=>fd(p.due)},
+    {k:'late',l:'상태',v:p=>p.late?0:1,h:jobState},
+    {k:'materialNotes',l:'늦는 부품 (가용일)',sort:false,h:p=>`<span class="small">${esc(p.materialNotes.join(', '))}</span>`}];
+  return `<div class="kpis">
+    ${kpi('관리 구매부품',P.materials.length,'1단계 BOM 기준','acc')}
+    ${kpi('부족 부품',short.length,short.length?'추가 구매 필요':'충분',short.length?'warn':'ok')}
+    ${kpi('구매 제안',P.purchases.length,`총 ${P.purchases.length?new Set(P.purchases.map(p=>p.itemId)).size:0}개 품목`,'acc')}
+    ${kpi('리드타임 부족',urg.length,'필요일까지 입고 불가',urg.length?'bad':'ok')}
+    ${kpi('자재 대기 작업지시',wait.length,'시작일이 밀린 계획',wait.length?'warn':'ok')}</div>
+   ${panel('구매부품 수급','현재고(Nettable) + PO 미입고 − 기존 작업지시 소요 − 계획 소요',tbl('mat',mc,P.materials,{sort:'shortage',dir:-1,ph:'부품 검색',rc:m=>m.shortage>0?'hl':'',text:m=>m.itemCode+' '+m.itemDesc,empty:'계획 작업지시에 구매부품 소요가 없습니다'}),`<button class="btn sec sm" onclick="go('po')">리드타임·입고일 설정</button>`)}
+   ${panel('구매 제안','발주 착수일 = 사용 가능일 − (후처리 + 처리 + 전처리 LT), 근무일 기준',tbl('pur',pc,P.purchases,{sort:'orderBy',ph:'품목·소요처 검색',rc:s=>s.late?'hl':'',text:s=>s.itemCode+' '+s.itemDesc+' '+s.forRef,empty:'구매 제안이 없습니다'}))}
+   ${panel('자재 대기 작업지시','구매부품 가용일까지 시작을 늦춘 계획',tbl('wait',wc,wait,{search:false,empty:'자재 때문에 밀린 계획이 없습니다'}))}`;
+};
+
+V.po=()=>{
+  const D=st.cache.purchasing;
+  const seg=`<div class="seg"><button class="${st.poTab==='po'?'on':''}" onclick="st.poTab='po';render()">PO 납품일정</button><button class="${st.poTab==='lt'?'on':''}" onclick="st.poTab='lt';render()">품목 리드타임</button></div>`;
+  if(!D)return seg+'<div class="empty">불러오는 중…</div>';
+  const ovs=D.shipments.filter(s=>s.overrideDate).length,pd=D.shipments.filter(s=>s.pastDue).length,lto=D.items.filter(i=>i.overridden).length;
+  const head=`<div class="kpis">
+    ${kpi('미입고 납품일정',D.shipments.length,`총 ${new Set(D.shipments.map(s=>s.poNumber)).size}개 PO`,'acc')}
+    ${kpi('입고 지연(예정일 경과)',pd,'오늘 입고로 가정',pd?'bad':'ok')}
+    ${kpi('입고예정일 수정',ovs,'플래너 설정값',ovs?'warn':'')}
+    ${kpi('리드타임 수정 품목',lto,`구매품목 ${D.items.length}개 중`,lto?'warn':'')}</div>
+   <div style="margin-bottom:14px">${seg}</div>`;
+  if(st.poTab==='po'){
+    const c=[
+      {k:'poNumber',l:'PO',h:s=>`<span class="b code">${esc(s.poNumber)}</span><span class="muted small"> ${esc(s.lineRef)}</span>`},
+      {k:'supplier',l:'공급사'},
+      {k:'status',l:'승인',h:s=>tag(s.status,s.status==='승인'?'gray':'warn')},
+      {k:'itemCode',l:'품목',h:s=>item(s.itemCode,s.itemDesc,s.itemId)},
+      {k:'openQty',l:'미입고',num:1,h:s=>`<span class="b">${n0(s.openQty)}</span> <span class="muted small">${esc(s.poUom)}</span>`},
+      {k:'needBy',l:'필요일',h:s=>fd(s.needBy)},
+      {k:'promised',l:'약속일',h:s=>fd(s.promised)||'<span class="muted">–</span>'},
+      {k:'expected',l:'입고예정일 (수정)',h:s=>`<input class="inp ${s.overrideDate?'set':''}" type="date" value="${s.overrideDate||''}" onchange="setRcpt(${s.lineLocationId},this.value)" title="비우면 약속일 → 필요일 순으로 사용">${s.overrideDate?` <button class="btn sec sm icon" title="EBS 날짜로 되돌리기" onclick="setRcpt(${s.lineLocationId},'')">↺</button>`:''}`},
+      {k:'dateSource',l:'적용 기준',h:s=>tag(s.dateSource,s.dateSource==='수정'?'acc':'gray')},
+      {k:'available',l:'사용 가능일',h:s=>`<span class="b">${fd(s.available)}</span>`},
+      {k:'pastDue',l:'상태',v:s=>s.pastDue?0:1,h:s=>s.pastDue?tag('입고 지연','bad'):tag('예정','ok')},
+      {k:'overrideNote',l:'메모',h:s=>s.overrideDate?`<input class="inp" style="width:180px" value="${esc(s.overrideNote||'')}" placeholder="변경 사유" onchange="setRcpt(${s.lineLocationId},'${s.overrideDate}',this.value)">`:'<span class="muted small">날짜 수정 시 입력</span>'}];
+    return head+panel('PO 납품일정','PO_LINE_LOCATIONS_ALL · 사용 가능일 = 입고예정일 + 후처리 리드타임',
+      tbl('po',c,D.shipments,{sort:'expected',ph:'PO·공급사·품목 검색',rc:s=>s.pastDue?'hl':'',text:s=>[s.poNumber,s.supplier,s.itemCode,s.itemDesc].join(' ')}),
+      '<span class="small muted">수정값은 플래너에만 저장되고 EBS PO 는 바뀌지 않습니다</span>');
+  }
+  const inp=(i,f,e)=>`<input class="inp lt ${i.overridden&&i[f]!==i[e]?'set':''}" id="lt-${i.itemId}-${f}" type="number" min="0" step="1" value="${i.overridden?i[f]:''}" placeholder="${i[e]}" onchange="setLt(${i.itemId})">`;
+  const c=[
+    {k:'itemCode',l:'구매품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},
+    {k:'uom',l:'단위'},
+    {k:'pre',l:'전처리',num:1,h:i=>inp(i,'pre','ebsPre')},
+    {k:'full',l:'처리 (조달)',num:1,h:i=>inp(i,'full','ebsFull')},
+    {k:'post',l:'후처리 (검수)',num:1,h:i=>inp(i,'post','ebsPost')},
+    {k:'totalLt',l:'총 LT',num:1,h:i=>`<span class="b">${n0(i.totalLt)}</span>일`},
+    {k:'ebsFull',l:'EBS 값',sort:false,h:i=>`<span class="muted small">${n0(i.ebsPre)} / ${n0(i.ebsFull)} / ${n0(i.ebsPost)}</span>`},
+    {k:'minOrder',l:'최소주문',num:1,h:i=>n0(i.minOrder)||'<span class="muted">–</span>'},
+    {k:'lotMultiplier',l:'주문배수',num:1,h:i=>n0(i.lotMultiplier)||'<span class="muted">–</span>'},
+    {k:'overridden',l:'',v:i=>i.overridden?0:1,h:i=>i.overridden?`${tag('수정됨','acc')} <button class="btn sec sm icon" title="EBS 값으로 되돌리기" onclick="resetLt(${i.itemId})">↺</button>`:''}];
+  return head+panel('품목 리드타임','MTL_SYSTEM_ITEMS_B 전처리 · 처리 · 후처리 리드타임 (근무일) · 빈칸 = EBS 값 사용',
+    tbl('lt',c,D.items,{sort:'itemCode',ph:'품목 검색',text:i=>i.itemCode+' '+i.itemDesc}),'<span class="small muted">구매 제안·PO 사용 가능일 계산에 바로 반영됩니다</span>');
+};
+
+V.inv=()=>{
+  const D=st.cache.onhand;
+  if(!D)return '<div class="empty">불러오는 중…</div>';
+  const subs=[...new Set(D.map(r=>r.subinventory))].sort();
+  let rows=D.filter(r=>(!st.invSub||r.subinventory===st.invSub)&&(!st.invNet||r.nettable));
+  const tot=rows.reduce((s,r)=>s+r.qty,0),nonNet=D.filter(r=>!r.nettable).reduce((s,r)=>s+r.qty,0);
+  const items=new Set(rows.map(r=>r.itemId)).size;
+  const tools=`<div class="seg"><button class="${st.invMode==='detail'?'on':''}" onclick="st.invMode='detail';render()">상세</button><button class="${st.invMode==='item'?'on':''}" onclick="st.invMode='item';render()">품목별</button></div>
+    <div class="field"><label>보관장소</label><select onchange="st.invSub=this.value;render()"><option value="">전체</option>${subs.map(s=>`<option ${s===st.invSub?'selected':''}>${esc(s)}</option>`).join('')}</select></div>
+    <label class="switch"><input type="checkbox" ${st.invNet?'checked':''} onchange="st.invNet=this.checked;render()">가용(Nettable)만</label>
+    <button class="btn sec sm" onclick="delete st.cache.onhand;lazy()">새로고침</button>`;
+  const head=`<div class="kpis">${kpi('품목 수',items,st.invSub?`보관장소 ${esc(st.invSub)}`:'전체 보관장소','acc')}${kpi('재고 행',rows.length,'로케이터·로트 단위','acc')}${kpi('보관장소',subs.length,'')}${kpi('비가용 재고',n0(nonNet),'MRB 등 Non-nettable',nonNet?'warn':'')}</div>`;
+  if(st.invMode==='item'){
+    const m=new Map();
+    for(const r of rows){const x=m.get(r.itemId)||{itemId:r.itemId,itemCode:r.itemCode,itemDesc:r.itemDesc,uom:r.uom,makeBuy:r.makeBuy,net:0,non:0,total:0,lots:new Set(),subs:new Set()};
+      r.nettable?x.net+=r.qty:x.non+=r.qty;x.total+=r.qty;if(r.lot)x.lots.add(r.lot);x.subs.add(r.subinventory);m.set(r.itemId,x)}
+    const agg=[...m.values()].map(x=>({...x,lots:x.lots.size,subs:[...x.subs].join(', ')}));
+    const c=[{k:'itemCode',l:'품목',h:x=>item(x.itemCode,x.itemDesc,x.itemId)},{k:'makeBuy',l:'구분',h:x=>tag(x.makeBuy,x.makeBuy==='제조'?'info':'gray')},{k:'uom',l:'단위'},
+      {k:'net',l:'가용',num:1,h:x=>`<span class="b">${n0(x.net)}</span>`},{k:'non',l:'비가용',num:1,h:x=>x.non?`<span style="color:var(--warn)">${n0(x.non)}</span>`:'<span class="muted">0</span>'},
+      {k:'total',l:'합계',num:1,h:x=>n0(x.total)},{k:'lots',l:'로트 수',num:1},{k:'subs',l:'보관장소'}];
+    return head+panel('품목별 현재고','',tbl('invi',c,agg,{sort:'itemCode',tools,ph:'품목 검색',text:x=>x.itemCode+' '+x.itemDesc}));
+  }
+  const c=[{k:'itemCode',l:'품목',h:r=>item(r.itemCode,r.itemDesc,r.itemId)},{k:'makeBuy',l:'구분',h:r=>tag(r.makeBuy,r.makeBuy==='제조'?'info':'gray')},
+    {k:'subinventory',l:'보관장소',h:r=>`<span class="b">${esc(r.subinventory)}</span> <span class="muted small">${esc(r.subinventoryDesc)}</span>`},
+    {k:'nettable',l:'가용',v:r=>r.nettable?0:1,h:r=>r.nettable?tag('가용','ok'):tag('비가용','warn')},
+    {k:'locator',l:'로케이터',h:r=>r.locator?`<span class="code">${esc(r.locator)}</span>`:'<span class="muted">–</span>'},
+    {k:'lot',l:'로트',h:r=>r.lot?`<span class="code">${esc(r.lot)}</span>`:'<span class="muted">–</span>'},
+    {k:'revision',l:'Rev',h:r=>esc(r.revision||'')},
+    {k:'qty',l:'수량',num:1,h:r=>`<span class="b">${n0(r.qty)}</span>`},{k:'uom',l:'단위'}];
+  return head+panel('현재고 상세',`합계 ${n0(tot)}`,tbl('inv',c,rows,{tools,ph:'품목·로트·로케이터 검색',text:r=>[r.itemCode,r.itemDesc,r.lot,r.locator,r.subinventory].join(' ')}));
+};
+
+V.dem=()=>{
+  const P=st.plan,pm=Object.fromEntries(P.planned.map(p=>[p.id,p]));
+  const c=[{k:'orderNumber',l:'수주',h:d=>`<span class="b">${esc(d.orderNumber)}</span><span class="muted small"> ${esc(d.lineRef)}</span>`},{k:'customer',l:'고객'},
+    {k:'itemCode',l:'품목',h:d=>item(d.itemCode,d.itemDesc,d.itemId)},{k:'openQty',l:'미출하',num:1,h:d=>`<span class="b">${n0(d.openQty)}</span>`},
+    {k:'orderUom',l:'단위',h:d=>esc(d.orderUom)+(d.orderUom!==d.uom?' '+tag('기본 '+d.uom,'warn'):'')},{k:'due',l:'납기',h:d=>fd(d.due)},
+    {k:'coveredQty',l:'기존공급 충당',num:1,h:d=>n0(d.coveredQty)},{k:'shortQty',l:'부족',num:1,h:d=>d.shortQty>0?`<span class="b">${n0(d.shortQty)}</span>`:''},
+    {k:'plannedId',l:'계획 완료',h:d=>{const p=pm[d.plannedId];return p&&p.finish?fd(p.finish):''}},
+    {k:'st',l:'상태',sort:false,h:d=>{const p=pm[d.plannedId];return d.shortQty<=0?tag('충당','ok'):!p||!p.releasable?tag('계획불가','bad'):p.late?tag('지연예상','bad'):tag('계획','acc')}}];
+  return panel('미출하 수주라인',`출하예정일(없으면 요청일) ${fd(P.end)} 까지`,tbl('dem',c,P.demands,{sort:'due',ph:'수주·고객·품목 검색',text:d=>[d.orderNumber,d.customer,d.itemCode,d.itemDesc].join(' ')}));
+};
+
+V.job=()=>{
+  const c=[{k:'source',l:'구분',h:s=>(s.source==='WIP'?tag('WIP','gray'):tag('IF 대기','warn'))+(s.plannerCreated?' '+tag('플래너','acc'):'')},
+    {k:'ref',l:'작업지시',h:s=>`<span class="b code">${esc(s.ref)}</span>`},{k:'itemCode',l:'품목',h:s=>item(s.itemCode,s.itemDesc,s.itemId)},
+    {k:'status',l:'상태',h:s=>tag(s.status,s.statusType===3?'ok':s.statusType===6?'bad':'gray')},{k:'remainQty',l:'잔량',num:1,h:s=>n0(s.remainQty)},
+    {k:'start',l:'시작',h:s=>fd(s.start)},{k:'completion',l:'완료예정',h:s=>fd(s.completion)},
+    {k:'resourceKey',l:'병목자원',h:s=>s.resourceKey?esc(resName(s.resourceKey)):'–'},{k:'note',l:'비고',h:s=>`<span class="small muted">${esc(s.note||'')}</span>`}];
+  return panel('미완료 작업지시','WIP_DISCRETE_JOBS 상태 1·3·6 + 처리대기 인터페이스',tbl('job',c,st.plan.existing,{sort:'completion',ph:'작업지시·품목 검색'}));
+};
+
+V.his=()=>{
+  const L=st.cache.interface;
+  if(!L)return '<div class="empty">불러오는 중…</div>';
+  const cls=s=>s==='완료'?'ok':s==='오류'?'bad':s==='경고'?'warn':'gray';
+  const c=[{k:'groupId',l:'그룹',h:r=>`<span class="code">${r.groupId}</span>`},{k:'interfaceId',l:'인터페이스 ID',h:r=>`<span class="code">${r.interfaceId}</span>`},{k:'itemCode',l:'품목',h:r=>`<span class="b">${esc(r.itemCode)}</span>`},
+    {k:'qty',l:'수량',num:1,h:r=>n0(r.qty)},{k:'startDate',l:'시작일',h:r=>fd(r.startDate)},{k:'status',l:'상태',h:r=>tag(r.status,cls(r.status))},
+    {k:'jobName',l:'작업지시',h:r=>`<span class="b code">${esc(r.jobName||'')}</span>`},{k:'created',l:'적재일',h:r=>fd(r.created)},{k:'description',l:'설명',h:r=>`<span class="small">${esc(r.description)}</span>`},
+    {k:'errors',l:'오류',sort:false,h:r=>`<span class="small" style="color:var(--bad);white-space:normal">${r.errors.map(esc).join('<br>')}</span>`}];
+  return panel('작업지시 생성 이력',`SOURCE_CODE=${esc(st.info.sourceCode)} · 최근 14일`,tbl('his',c,L,{ph:'품목·작업지시 검색'}),`<button class="btn sec sm" onclick="delete st.cache.interface;lazy()">새로고침</button>`);
+};
+
+V.mas=()=>{
+  const M=st.cache.master;
+  if(!M)return '<div class="empty">불러오는 중…</div>';
+  const rc=[{k:'departmentCode',l:'부서',h:r=>`<span class="b">${esc(r.departmentCode)}</span>`},{k:'resourceCode',l:'자원'},{k:'description',l:'설명'},{k:'uom',l:'UOM'},
+    {k:'capacityUnits',l:'능력단위',num:1,h:r=>n0(r.capacityUnits)},{k:'available24h',l:'24시간',h:r=>r.available24h?'Y':''},
+    {k:'shiftUnitHours',l:'교대시간×단위',num:1,h:r=>n0(r.shiftUnitHours)},{k:'hoursPerDay',l:'일 능력(h)',num:1,h:r=>`<span class="b">${n0(r.hoursPerDay)}</span>`}];
+  const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'병목 부서/자원',h:i=>`${esc(i.departmentCode)}/${esc(i.resourceCode)}`},
+    {k:'hoursPerUnit',l:'개당(h)',num:1,h:i=>Number(i.hoursPerUnit).toFixed(4)},{k:'setupHours',l:'셋업(h)',num:1,h:i=>n0(i.setupHours)},
+    {k:'maxPerDay',l:'일 최대',num:1,h:i=>n0(Math.floor(i.maxPerDay))},{k:'operationCount',l:'공정자원',num:1}];
+  return panel('자원 능력','BOM_DEPARTMENT_RESOURCES · BOM_RESOURCE_SHIFTS · 시간 단위(HR/MIN/SEC) 자원만',tbl('mres',rc,M.resources,{search:false}))
+   +panel('품목별 병목 자원','주 라우팅에서 개당 시간이 가장 큰 부서-자원',tbl('mrt',ic,M.routings,{ph:'품목 검색'}))
+   +panel('휴무일',`캘린더 ${esc(M.org.calendarCode)} · 향후 90일`,`<div style="display:flex;flex-wrap:wrap;gap:6px">${M.nonWorkDays.map(d=>{const w=new Date(d+'T00:00').getDay();return tag(fd(d),w===0||w===6?'gray':'warn')}).join('')}</div>`,'',false);
+};
+
+/* ---------- 품목 정보 (Oracle 품목 화면 계획 탭) ---------- */
+const FENCE={1:'누적 총 리드타임 (Cumulative Total LT)',2:'누적 제조 리드타임 (Cumulative Mfg. LT)',3:'총 리드타임 (Total LT)',4:'사용자 정의 (User-Defined)',5:'자동 해제 안 함 (Do Not Autorelease)',6:'해제 안 함 (Kanban)'};
+const DEC={
+  inventory_planning_code:{1:'재주문점 (Reorder Point)',2:'최소-최대 (Min-Max)',6:'계획 안 함 (Not Planned)',7:'공급사 관리 (Vendor Managed)'},
+  planning_make_buy_code:{1:'제조 (Make)',2:'구매 (Buy)'},
+  mrp_safety_stock_code:{1:'비MRP 계획 (Non-MRP Planned)',2:'MRP 계획 비율 (MRP Planned %)'},
+  source_type:{1:'재고 조직 (Inventory)',2:'공급사 (Supplier)',3:'보관장소 (Subinventory)'},
+  mrp_planning_code:{3:'MRP 계획 (MRP Planning)',4:'MPS 계획 (MPS Planning)',6:'계획 안 함 (Not Planned)',7:'MRP 및 DRP 계획',8:'MPS 및 DRP 계획',9:'DRP 계획'},
+  ato_forecast_control:{1:'소비 (Consume)',2:'소비 및 파생 (Consume and Derive)',3:'없음 (None)'},
+  end_assembly_pegging_flag:{A:'소프트 페깅 (Soft Pegging)',B:'최종 조립/소프트 페깅',I:'하드 페깅 (Hard Pegging)',X:'최종 조립/하드 페깅',Y:'최종 조립 페깅 (End Assembly Pegging)',N:'없음 (None)'},
+  auto_reduce_mps:{1:'없음 (None)',2:'과거 기한 (Past Due)',3:'수요 시간 울타리 내 (Within Demand TF)',4:'계획 시간 울타리 내 (Within Planning TF)'},
+  planning_time_fence_code:FENCE,demand_time_fence_code:FENCE,release_time_fence_code:FENCE,substitution_window_code:FENCE,
+  wip_supply_type:{1:'Push',2:'조립 Pull (Assembly Pull)',3:'공정 Pull (Operation Pull)',4:'벌크 (Bulk)',5:'공급사 (Supplier)',6:'팬텀 (Phantom)',7:'BOM 기준 (Based on Bill)'},
+  overcompletion_tolerance_type:{1:'퍼센트 (Percent)',2:'수량 (Amount)'}};
+const nz=v=>v===null||v===undefined||v==='';
+const fval=(a,k,kind)=>{
+  const v=a[k];
+  if(kind==='flag'){const on=v==='Y'||v===1||v==='1';return `<div class="fv"><span class="cb ${on?'on':''}">${on?'✓':''}</span>${on?'예':'아니오'}</div>`}
+  if(nz(v))return '<div class="fv empty">미설정</div>';
+  let s;
+  if(kind==='dec'){const m=DEC[k]||{};s=m[v]?`${esc(m[v])} <span class="muted small">(${esc(v)})</span>`:esc(v)}
+  else if(kind==='num')s=Number(v).toLocaleString('ko-KR',{maximumFractionDigits:4});
+  else s=esc(v);
+  return `<div class="fv">${s}</div>`;
+};
+const fld=(a,label,en,k,kind,extra)=>`<div class="f"><label>${label}<small>${en}</small></label>${extra?extra(a):fval(a,k,kind)}</div>`;
+const sec=(t,body)=>`<div class="fs"><h3>${t}</h3><div class="fg">${body}</div></div>`;
+const both=(code,days)=>a=>{const c=a[code],d=a[days];if(nz(c))return '<div class="fv empty">미설정</div>';
+  return `<div class="fv">${esc(FENCE[c]||c)}${!nz(d)?` <span class="tag acc">${n0(d)}일</span>`:''}</div>`};
+
+async function loadItems(){
+  try{const it=st.it;it.list=await api(`/api/items?orgId=${orgId()}&q=${encodeURIComponent(it.q)}${it.mb?`&makeBuy=${it.mb}`:''}`);
+    if(!it.id&&it.list.length){it.id=it.list[0].inventory_item_id;await loadItem(it.id);return}
+    render()}catch(e){toast(e.message,1)}
+}
+async function loadItem(id){
+  st.it.id=id;try{st.it.d=await api(`/api/items/${id}?orgId=${orgId()}`)}catch(e){toast(e.message,1);st.it.d=null}render();
+}
+let itTimer;
+function itSearch(v){st.it.q=v;clearTimeout(itTimer);itTimer=setTimeout(()=>{st.it.list=null;loadItems().then(()=>{const e=$('itq');if(e){e.focus();e.setSelectionRange(v.length,v.length)}})},300)}
+function openItem(id){st.it.d=null;st.it.id=id;st.it.tab='main';if(st.page!=='item')go('item');else loadItem(id)}
+
+V.item=()=>{
+  const it=st.it,L=it.list;
+  const list=`<div class="panel" style="margin:0"><div class="tt" style="flex-direction:column;align-items:stretch">
+     <input class="search" id="itq" style="min-width:0;width:100%" placeholder="품번 · 설명 검색" value="${esc(it.q)}" oninput="itSearch(this.value)">
+     <div class="seg">${[['','전체'],['1','제조'],['2','구매']].map(([v,t])=>`<button class="${it.mb===v?'on':''}" onclick="st.it.mb='${v}';st.it.list=null;loadItems()">${t}</button>`).join('')}</div></div>
+   <div class="il">${!L?'<div class="empty">불러오는 중…</div>':!L.length?'<div class="empty">검색 결과 없음</div>':L.map(x=>`<div class="il-row ${x.inventory_item_id===it.id?'on':''}" onclick="loadItem(${x.inventory_item_id})">
+     <div class="m"><div class="c">${esc(x.item_code)}</div><div class="d">${esc(x.item_desc)}</div></div>
+     ${tag(x.planning_make_buy_code==1?'제조':'구매',x.planning_make_buy_code==1?'info':'gray')}<span class="small muted" title="전처리+처리+후처리">${n0(x.total_lead_time)}일</span></div>`).join('')}</div>
+   ${L&&L.length>=300?'<div class="small muted" style="padding:8px 16px">상위 300건만 표시 – 검색어를 입력하세요</div>':''}</div>`;
+  return `<div class="ip">${list}<div class="panel" style="margin:0">${it.d?itemDetail(it.d):`<div class="empty">${it.id?'불러오는 중…':'품목을 선택하세요'}</div>`}</div></div>`;
+};
+
+function itemDetail(D){
+  const a=D.attrs,s=D.supply,o=D.leadTimeOverride,mb=a.planning_make_buy_code==1;
+  const TABS=[['main','주요'],['gp','일반 계획'],['mrp','MPS/MRP 계획'],['lt','리드타임'],['wip','재공 (WIP)'],['bom',`BOM · 사용처 (${D.bom.length}/${D.whereUsed.length})`]];
+  const head=`<div class="ih"><div class="code">${esc(a.item_code)}</div><div class="t2">${esc(a.item_desc)}</div>
+    <div class="tags">${tag(mb?'제조 (Make)':'구매 (Buy)',mb?'info':'gray')}${a.item_type?tag(a.item_type_meaning||a.item_type,'acc'):''}${tag(a.inventory_item_status_code||'–',a.inventory_item_status_code==='Active'?'ok':'warn')}
+    ${a.planner_code?tag('계획자 '+(a.planner_name||a.planner_code),'gray'):''}${tag(DEC.mrp_planning_code[a.mrp_planning_code]||'MRP '+a.mrp_planning_code,'gray')}${o?tag('리드타임 수정됨','warn'):''}</div></div>
+   <div class="sup"><div><div class="l">가용 재고</div><div class="v">${n0(s.onhand_nettable)}</div></div><div><div class="l">비가용 재고</div><div class="v">${n0(s.onhand_other)}</div></div>
+    <div><div class="l">PO 미입고</div><div class="v">${n0(s.po_open)}</div></div><div><div class="l">작업지시 잔량</div><div class="v">${n0(s.wip_open)}</div></div><div><div class="l">수주 미출하</div><div class="v">${n0(s.so_open)}</div></div></div>
+   <div class="tabs">${TABS.map(([k,t])=>`<button class="${st.it.tab===k?'on':''}" onclick="st.it.tab='${k}';render()">${t}</button>`).join('')}</div>`;
+  let body='';
+  const t=st.it.tab;
+  if(t==='main'){
+    body=sec('주요 (Main)',fld(a,'품번','Item','item_code')+fld(a,'설명','Description','item_desc')
+      +fld(a,'기본 단위','Primary UOM','',null,a=>`<div class="fv">${esc(a.primary_uom_code)} <span class="muted small">${esc(a.primary_unit_of_measure||'')}</span></div>`)
+      +fld(a,'사용자 품목 유형','User Item Type','',null,a=>nz(a.item_type)?'<div class="fv empty">미설정</div>':`<div class="fv">${esc(a.item_type_meaning||a.item_type)} <span class="muted small">(${esc(a.item_type)})</span></div>`)
+      +fld(a,'품목 상태','Item Status','inventory_item_status_code')+fld(a,'제조/구매','Make or Buy','planning_make_buy_code','dec'))
+     +sec('계획 요약',fld(a,'재고 계획 방법','Inventory Planning Method','inventory_planning_code','dec')+fld(a,'MRP 계획 방법','Planning Method','mrp_planning_code','dec')
+      +fld(a,'계획자','Planner','',null,a=>nz(a.planner_code)?'<div class="fv empty">미설정</div>':`<div class="fv">${esc(a.planner_code)} <span class="muted small">${esc(a.planner_name||'')}</span></div>`)
+      +fld(a,'누적 총 리드타임','Cumulative Total LT','cumulative_total_lead_time','num')+fld(a,'작업지시 생성','Build in WIP','build_in_wip_flag','flag')+fld(a,'재공 공급 유형','WIP Supply Type','wip_supply_type','dec'));
+  }else if(t==='gp'){
+    body=sec('재고 계획 (Inventory Planning)',fld(a,'재고 계획 방법','Inventory Planning Method','inventory_planning_code','dec')
+       +fld(a,'계획자','Planner','',null,a=>nz(a.planner_code)?'<div class="fv empty">미설정</div>':`<div class="fv">${esc(a.planner_code)} <span class="muted small">${esc(a.planner_name||'')}</span></div>`)
+       +fld(a,'제조/구매','Make or Buy','planning_make_buy_code','dec'))
+     +sec('최소-최대 수량 (Min-Max Quantity)',fld(a,'최소','Minimum','min_minmax_quantity','num')+fld(a,'최대','Maximum','max_minmax_quantity','num'))
+     +sec('안전재고 (Safety Stock)',fld(a,'방법','Method','mrp_safety_stock_code','dec')+fld(a,'버킷 일수','Bucket Days','safety_stock_bucket_days','num')+fld(a,'비율 (%)','Percent','mrp_safety_stock_percent','num'))
+     +sec('주문 수량 (Order Quantity)',fld(a,'최소','Minimum','minimum_order_quantity','num')+fld(a,'최대','Maximum','maximum_order_quantity','num'))
+     +sec('원가 (Cost)',fld(a,'주문 원가','Order','order_cost','num')+fld(a,'보유 원가 (%)','Carrying %','carrying_cost','num'))
+     +sec('소싱 (Source)',fld(a,'유형','Type','source_type','dec')+fld(a,'조직','Organization','source_org_code')+fld(a,'보관장소','Subinventory','source_subinventory'))
+     +sec('주문 수정자 (Order Modifiers)',fld(a,'고정 주문 수량','Fixed Order Quantity','fixed_order_quantity','num')+fld(a,'고정 공급 일수','Fixed Days Supply','fixed_days_supply','num')+fld(a,'고정 로트 배수','Fixed Lot Size Multiplier','fixed_lot_multiplier','num'));
+  }else if(t==='mrp'){
+    body=sec('계획 (Planning)',fld(a,'계획 방법','Planning Method','mrp_planning_code','dec')+fld(a,'예측 관리','Forecast Control','ato_forecast_control','dec')
+       +fld(a,'예외 세트','Exception Set','planning_exception_set')+fld(a,'최종 조립 페깅','Pegging','end_assembly_pegging_flag','dec')
+       +fld(a,'계획 재고 지점','Planned Inventory Point','planned_inv_point_flag','flag')+fld(a,'공급 생성','Create Supply','create_supply_flag','flag'))
+     +sec('계산 (Calculation)',fld(a,'주문 수량 반올림','Round Order Quantities','',null,a=>{const on=a.rounding_control_type==1;return `<div class="fv"><span class="cb ${on?'on':''}">${on?'✓':''}</span>${on?'예':'아니오'}</div>`})
+       +fld(a,'축소율','Shrinkage Rate','shrinkage_rate','num')+fld(a,'허용 조기 일수','Acceptable Early Days','acceptable_early_days','num')
+       +fld(a,'ATP 계산','Calculate ATP','mrp_calculate_atp_flag','flag')+fld(a,'MPS 감소','Reduce MPS','auto_reduce_mps','dec')
+       +fld(a,'핵심 구성품','Critical Component','critical_component_flag','flag')+fld(a,'사전 배치 지점','Preposition Point','preposition_point','flag'))
+     +sec('반복 계획 (Repetitive Planning)',fld(a,'반복 계획','Repetitive Planning','repetitive_planning_flag','flag')+fld(a,'초과율 (%)','Overrun Percentage','overrun_percentage','num')
+       +fld(a,'허용 증가율 (%)','Acceptable Rate Increase','acceptable_rate_increase','num')+fld(a,'허용 감소율 (%)','Acceptable Rate Decrease','acceptable_rate_decrease','num'))
+     +sec('시간 울타리 (Time Fences)',fld(a,'계획 시간 울타리','Planning Time Fence','',null,both('planning_time_fence_code','planning_time_fence_days'))
+       +fld(a,'수요 시간 울타리','Demand Time Fence','',null,both('demand_time_fence_code','demand_time_fence_days'))
+       +fld(a,'해제 시간 울타리','Release Time Fence','',null,both('release_time_fence_code','release_time_fence_days'))
+       +fld(a,'대체 창','Substitution Window','',null,both('substitution_window_code','substitution_window_days')));
+  }else if(t==='lt'){
+    const pre=Number(a.preprocessing_lead_time||0),full=Number(a.full_lead_time||0),post=Number(a.postprocessing_lead_time||0);
+    const ep=o&&o.pre!=null?o.pre:pre,ef=o&&o.full!=null?o.full:full,eo=o&&o.post!=null?o.post:post,tot=Math.max(ep+ef+eo,0.0001);
+    const bar=`<div class="ltbar">${[[ep,'전처리','#94a3b8'],[ef,'처리','#6366f1'],[eo,'후처리','#0ea5e9']].filter(x=>x[0]>0).map(([v,l,c])=>`<div style="flex:${v/tot};background:${c}">${l} ${n0(v)}일</div>`).join('')||'<div style="flex:1;background:var(--gray2);color:var(--muted)">리드타임 없음</div>'}</div>`;
+    const ovIn=(f,ebs)=>`<input class="inp lt ${o&&o[f]!=null?'set':''}" style="width:100%;height:32px" id="lt-${a.inventory_item_id}-${f}" type="number" min="0" step="1" value="${o&&o[f]!=null?o[f]:''}" placeholder="EBS ${n0(ebs)}">`;
+    body=`<div class="fs"><h3>계획에 적용되는 리드타임 ${o?tag('플래너 수정값 적용','warn'):tag('EBS 값','gray')}</h3>${bar}<div class="small t2">총 ${n0(ep+ef+eo)}일 (근무일) · 구매 제안 발주 착수일과 PO 사용 가능일 계산에 사용</div></div>`
+     +sec('처리 리드타임 (Processing)',fld(a,'전처리','Preprocessing','preprocessing_lead_time','num')+fld(a,'처리','Processing','full_lead_time','num')+fld(a,'후처리','Postprocessing','postprocessing_lead_time','num'))
+     +sec('제조 리드타임 (Manufacturing)',fld(a,'고정','Fixed','fixed_lead_time','num')+fld(a,'변동','Variable','variable_lead_time','num')+fld(a,'리드타임 로트 크기','Lead Time Lot Size','lead_time_lot_size','num'))
+     +sec('누적 리드타임 (Cumulative)',fld(a,'누적 제조','Cumulative Manufacturing','cum_manufacturing_lead_time','num')+fld(a,'누적 총','Cumulative Total','cumulative_total_lead_time','num'))
+     +`<div class="fs"><h3>플래너 수정값 (EBS 에는 저장되지 않음)</h3><div class="fg">
+        <div class="f"><label>전처리<small>Preprocessing</small></label>${ovIn('pre',pre)}</div>
+        <div class="f"><label>처리<small>Processing</small></label>${ovIn('full',full)}</div>
+        <div class="f"><label>후처리<small>Postprocessing</small></label>${ovIn('post',post)}</div></div>
+        <div style="display:flex;gap:8px;margin:0 0 16px"><button class="btn sm" onclick="saveItemLt(${a.inventory_item_id})">저장 후 재계산</button>${o?`<button class="btn sec sm" onclick="resetItemLt(${a.inventory_item_id})">EBS 값으로 되돌리기</button>`:''}
+        <span class="small muted" style="align-self:center">${mb?'제조품목은 현재 계획 엔진이 라우팅 능력으로 일정을 잡으므로 이 값은 참고용입니다':'빈칸은 EBS 값을 사용합니다'}</span></div></div>`;
+  }else if(t==='wip'){
+    body=sec('재공 (Work In Process)',fld(a,'작업지시 생성','Build in WIP','build_in_wip_flag','flag')+fld(a,'공급 유형','Supply Type','wip_supply_type','dec')
+       +fld(a,'공급 보관장소','Supply Subinventory','wip_supply_subinventory'))
+     +sec('초과 완료 허용 (Overcompletion Tolerance)',fld(a,'유형','Type','overcompletion_tolerance_type','dec')+fld(a,'값','Value','overcompletion_tolerance_value','num'))
+     +sec('일정 패널티 (Scheduling Penalties)',fld(a,'재고 보유 (%)','Inventory Carry','inventory_carry_penalty','num')+fld(a,'공정 여유 (%)','Operation Slack','operation_slack_penalty','num'));
+  }else{
+    const bc=(isWU)=>[{k:'item_code',l:isWU?'상위 품목':'구성품',h:x=>item(x.item_code,x.item_desc,x.item_id)},{k:'planning_make_buy_code',l:'구분',h:x=>tag(x.planning_make_buy_code==1?'제조':'구매',x.planning_make_buy_code==1?'info':'gray')},
+      {k:'component_quantity',l:'단위당 수량',num:1,h:x=>n0(x.component_quantity)},{k:'component_yield_factor',l:'수율',num:1,h:x=>n0(x.component_yield_factor)},
+      {k:'primary_uom_code',l:'단위'},{k:'wip_supply_type',l:'공급 유형',h:x=>esc(DEC.wip_supply_type[x.wip_supply_type]||'')}];
+    body=`<div class="fs"><h3>BOM 구성품 (주 BOM 1단계)</h3></div>${tbl('ibom',bc(false),D.bom,{search:false,empty:'BOM 없음'})}
+      <div class="fs"><h3>사용처 (Where Used)</h3></div>${tbl('iwu',bc(true),D.whereUsed,{search:false,empty:'사용처 없음'})}<div style="height:12px"></div>`;
+  }
+  return head+body;
+}
+async function saveItemLt(id){
+  const v=f=>{const x=$(`lt-${id}-${f}`).value;return x===''?null:Number(x)};
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id,pre:v('pre'),full:v('full'),post:v('post')});delete st.cache.purchasing;toast('리드타임 저장 · 계획 재계산');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
+}
+async function resetItemLt(id){
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id});delete st.cache.purchasing;toast('EBS 리드타임으로 복원');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
+}
+
+/* ---------- 동작 ---------- */
+function tog(id,on){on?st.sel.add(id):st.sel.delete(id);render()}
+function togAll(on){st.plan.planned.filter(p=>p.releasable).forEach(p=>on?st.sel.add(p.id):st.sel.delete(p.id));render()}
+let ovTimer;
+function setOv(id,k,v){
+  const o=st.ov[id]||(st.ov[id]={});
+  if(v===''||v==null)delete o[k];else o[k]=k==='qty'?Number(v):v;
+  if(!Object.keys(o).length)delete st.ov[id];
+  clearTimeout(ovTimer);ovTimer=setTimeout(loadPlan,250);
+}
+async function afterSetting(msg){delete st.cache.purchasing;toast(msg+' · 계획 재계산');await loadPlan()}
+async function setRcpt(id,date,note){
+  try{await send('PUT','/api/purchasing/receipt',{orgId:orgId(),lineLocationId:id,date,note});await afterSetting(date?'입고예정일 저장':'EBS 날짜로 복원')}
+  catch(e){toast(e.message,1)}
+}
+async function setLt(itemId){
+  const v=f=>{const x=$(`lt-${itemId}-${f}`).value;return x===''?null:Number(x)};
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId,pre:v('pre'),full:v('full'),post:v('post')});await afterSetting('리드타임 저장')}
+  catch(e){toast(e.message,1)}
+}
+async function resetLt(itemId){
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId});await afterSetting('EBS 리드타임으로 복원')}catch(e){toast(e.message,1)}
+}
+function confirmRelease(){
+  const list=st.plan.planned.filter(p=>st.sel.has(p.id)),late=list.filter(p=>p.late).length,wait=list.filter(p=>p.materialReady).length;
+  $('dlg').innerHTML=`<div class="dh">EBS 작업지시 생성</div><div class="db">
+    <dl class="kv"><dt>조직</dt><dd>${esc(st.plan.org.code)} · ${esc(st.plan.org.name)}</dd><dt>건수 / 수량</dt><dd>${list.length}건 / ${n0(list.reduce((s,p)=>s+p.qty,0))}</dd>
+    <dt>상태</dt><dd>${st.statusType==1?'1 미해제':'3 해제'}</dd><dt>회계 클래스</dt><dd>${esc(st.classCode||st.plan.org.defaultClass||'기본')}</dd>
+    <dt>처리</dt><dd>${st.info.submitMassLoad?'적재 후 WIP Mass Load 자동 제출':'WIP_JOB_SCHEDULE_INTERFACE 적재만'}</dd></dl>
+    ${late?`<div class="banner bad" style="margin:8px 0 0">납기 지연 예상 ${late}건 포함</div>`:''}${wait?`<div class="banner" style="margin:8px 0 0">자재 대기 ${wait}건 포함 – 시작일이 자재 가용일로 설정됩니다</div>`:''}
+    <p class="small">서버가 최신 EBS 데이터로 다시 계산한 값으로 적재합니다.</p></div>
+    <div class="df"><button class="btn sec" onclick="$('dlg').close()">취소</button><button class="btn" id="go">생성</button></div>`;
+  $('dlg').showModal();
+  $('go').onclick=async()=>{
+    $('go').disabled=true;
+    try{
+      const r=await send('POST','/api/release',{...req(),ids:[...st.sel],statusType:st.statusType,classCode:st.classCode});
+      toast(`그룹 ${r.groupId}: ${r.count}건 적재`+(r.requestId?` · 요청 ID ${r.requestId}`:'')+(r.demoProcessed?' · (데모) 작업지시 생성됨':''));
+      st.sel.clear();st.ov={};delete st.cache.interface;
+    }catch(e){toast('생성 실패: '+e.message,1)}
+    $('dlg').close();await loadPlan();
+  };
+}
+init();
+</script>
+</body>
+</html>

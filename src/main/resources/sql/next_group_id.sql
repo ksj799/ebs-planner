@@ -1,0 +1,1 @@
+SELECT wip_job_schedule_interface_s.NEXTVAL FROM dual

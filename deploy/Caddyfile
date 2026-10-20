@@ -1,0 +1,5 @@
+# {DOMAIN} 은 setup-vm.sh 가 바꿔 넣는다 (예: 152-67-1-2.sslip.io). Caddy 가 Let's Encrypt 인증서를 자동 발급한다.
+{DOMAIN} {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+}
