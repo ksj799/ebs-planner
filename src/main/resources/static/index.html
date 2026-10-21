@@ -262,7 +262,8 @@ const PG=Object.fromEntries(PAGES.filter(p=>p.k).map(p=>[p.k,p]));
 
 const st={info:{},orgs:[],plan:null,ov:{},sel:new Set(),busy:0,page:PG[location.hash.slice(1)]?location.hash.slice(1):'dash',
   statusType:1,classCode:'',cache:{},t:{},poTab:'po',invMode:'detail',invSub:'',invNet:false,
-  it:{q:'',mb:'',list:null,id:null,d:null,tab:'main'}};
+  it:{q:'',mb:'',list:null,id:null,d:null,tab:'main'},
+  pf:{q:'',res:'',st:'',kind:''}};
 
 /* ---------- API ---------- */
 let slowToast=null;
@@ -338,10 +339,13 @@ function render(){
   // 다시 그려도 스크롤 위치 유지 (같은 화면일 때만, 화면을 바꾸면 맨 위로)
   const samePage=render.last===st.page, y=window.scrollY, keep={};
   document.querySelectorAll('[data-keep]').forEach(e=>keep[e.dataset.keep]=[e.scrollLeft,e.scrollTop]);
+  // 입력 중이던 칸(검색창 등)의 포커스·커서 위치도 유지
+  const ae=document.activeElement, focusId=ae&&ae.id&&$('view').contains(ae)?ae.id:null, caret=focusId&&ae.selectionStart;
   $('view').innerHTML=(['dash','plan','mat'].includes(st.page)?warn:'')+V[st.page]();
   if(samePage){
     document.querySelectorAll('[data-keep]').forEach(e=>{const k=keep[e.dataset.keep];if(k){e.scrollLeft=k[0];e.scrollTop=k[1]}});
     window.scrollTo(0,y);
+    const f=focusId&&$(focusId);if(f){f.focus({preventScroll:true});if(caret!=null&&f.setSelectionRange)try{f.setSelectionRange(caret,caret)}catch(e){}}
   }else window.scrollTo(0,0);
   render.last=st.page;
 }
@@ -385,7 +389,7 @@ V.dash=()=>{
   const P=st.plan,late=P.planned.filter(p=>p.late),wait=P.planned.filter(p=>p.materialReady),urg=P.purchases.filter(p=>p.late);
   const short=P.demands.filter(d=>d.shortQty>0);
   const alerts=[
-    ...late.map(p=>({c:'bad',i:'!',t:`SO ${p.orderNumber}-${p.lineRef} · ${p.itemCode} 납기 지연`,d:`납기 ${fd(p.due)} → 완료예정 ${p.finish?fd(p.finish):'미정'}${p.materialReady?` · 자재 가용 ${fd(p.materialReady)}`:''}`,go:'plan'})),
+    ...late.map(p=>({c:'bad',i:'!',t:`SO ${p.orderNumber}-${p.lineRef} · ${p.itemCode} 납기 지연`,d:`납기 ${fd(p.due)} → 완료예정 ${p.finish?fd(p.finish):'미정'}${p.materialReady?` · 자재 가용 ${fd(p.materialReady)}`:''}`,go:'plan',q:`SO ${p.orderNumber}-${p.lineRef}`})),
     ...urg.map(s=>({c:'warn',i:'P',t:`${s.itemCode} 긴급 구매 필요 ${n0(s.qty)} ${s.uom}`,d:`필요 ${fd(s.needDate)} · 리드타임상 최초 가용 ${fd(s.availableDate)} · ${s.forRef}`,go:'mat'})),
     ...wait.filter(p=>!p.late).map(p=>({c:'info',i:'M',t:`SO ${p.orderNumber}-${p.lineRef} 자재 대기`,d:p.materialNotes.join(', '),go:'mat'}))];
   return `<div class="kpis">
@@ -396,14 +400,43 @@ V.dash=()=>{
     ${kpi('구매 제안',P.purchases.length,`리드타임 부족 ${urg.length}건`,urg.length?'bad':'')}
   </div>
   <div class="two">
-    ${panel('주의 필요',`${alerts.length}건`,alerts.length?`<div class="alerts">${alerts.slice(0,12).map(a=>`<div class="a"><span class="ic ${a.c}">${a.i}</span><div style="flex:1;min-width:0"><div class="b">${esc(a.t)}</div><div class="small t2">${esc(a.d)}</div></div><button class="btn sec sm" onclick="go('${a.go}')">보기</button></div>`).join('')}</div>`:'<div class="empty">특이사항 없음</div>')}
+    ${panel('주의 필요',`${alerts.length}건`,alerts.length?`<div class="alerts">${alerts.slice(0,12).map(a=>`<div class="a"><span class="ic ${a.c}">${a.i}</span><div style="flex:1;min-width:0"><div class="b">${esc(a.t)}</div><div class="small t2">${esc(a.d)}</div></div><button class="btn sec sm" onclick="${a.q?`goPlan('${esc(a.q)}')`:`go('${a.go}')`}">보기</button></div>`).join('')}</div>`:'<div class="empty">특이사항 없음</div>')}
     ${panel('자원 부하율',`${fd(P.start)} ~ ${fd(P.end)}`,`<table class="t"><thead><tr><th>부서/자원</th><th class="num">일 능력</th><th style="width:45%">부하</th><th class="num">%</th></tr></thead><tbody>
       ${P.resources.map(r=>{const p=loadPct(r);return `<tr><td><span class="b">${esc(r.departmentCode)}/${esc(r.resourceCode)}</span> <span class="muted small">${esc(r.description)}</span></td><td class="num">${n0(r.hoursPerDay)}h</td><td>${pbar(p)}</td><td class="num b">${p.toFixed(0)}%</td></tr>`}).join('')}</tbody></table>`)}
   </div>`;
 };
 
+/* ---------- 생산계획 조회조건 ---------- */
+const PF_ST={late:'납기지연',wait:'자재대기',ok:'정상',nort:'라우팅없음',bad:'일정불가'};
+function pfStatus(p){return !p.releasable?'bad':!p.resourceKey?'nort':p.late?'late':p.materialReady?'wait':'ok'}
+const pfActive=()=>{const f=st.pf;return !!(f.q||f.res||f.st||f.kind)};
+function pfText(x){return [x.ref,x.orderNumber?`SO ${x.orderNumber}-${x.lineRef}`:'',x.customer,x.itemCode,x.itemDesc].filter(Boolean).join(' ').toLowerCase()}
+function pfQ(x){const q=st.pf.q.trim().toLowerCase();if(!q)return true;const t=pfText(x);return q.split(/\s+/).every(w=>t.includes(w))}
+function pfRes(x){return !st.pf.res||(x.resourceKey||'none')===st.pf.res}
+function matchEx(s){const f=st.pf;return f.kind!=='pl'&&!f.st&&pfRes(s)&&pfQ(s)}
+function matchPl(p){const f=st.pf;return f.kind!=='ex'&&(!f.st||pfStatus(p)===f.st)&&pfRes(p)&&pfQ(p)}
+let pfTimer;
+function pfSet(k,v){st.pf[k]=v;clearTimeout(pfTimer);pfTimer=setTimeout(render,k==='q'?200:0)}
+function pfReset(){st.pf={q:'',res:'',st:'',kind:''};render()}
+function goPlan(q){st.pf={q,res:'',st:'',kind:''};go('plan');render()}
+function pfBar(nEx,nPl){
+  const P=st.plan,f=st.pf;
+  const resOpts=[['','전체'],...P.resources.map(r=>[r.key,`${r.departmentCode}/${r.resourceCode}`]),['none','라우팅 없음']];
+  const stOpts=[['','전체'],['late','납기지연'],['wait','자재대기'],['ok','정상'],['nort','라우팅없음']];
+  const sel=(k,opts)=>`<select onchange="pfSet('${k}',this.value)">${opts.map(([v,t])=>`<option value="${v}" ${f[k]===v?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
+  return `<div class="panel"><div class="pb" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input class="search" id="pfq" style="min-width:300px;flex:1;max-width:460px" placeholder="품목 · 작업지시(J-20003) · 수주번호 · 고객 검색 (공백으로 여러 단어)" value="${esc(f.q)}" oninput="pfSet('q',this.value)">
+    <div class="field"><label>자원</label>${sel('res',resOpts)}</div>
+    <div class="field"><label>상태</label>${sel('st',stOpts)}</div>
+    <div class="seg">${[['','전체'],['ex','기존 작업지시'],['pl','계획 작업지시']].map(([v,t])=>`<button class="${f.kind===v?'on':''}" onclick="pfSet('kind','${v}')">${t}</button>`).join('')}</div>
+    <span class="small t2">기존 <b>${nEx}</b> · 계획 <b>${nPl}</b>건${pfActive()?` <span class="muted">(전체 ${P.existing.length} · ${P.planned.length})</span>`:''}</span>
+    ${pfActive()?`<button class="btn sec sm" onclick="pfReset()">조건 초기화</button>`:''}
+  </div></div>`;
+}
+
 V.plan=()=>{
   const P=st.plan,days=P.days;
+  const exAll=P.existing.filter(matchEx),plAll=P.planned.filter(matchPl),filtering=pfActive();
   const head=days.map(d=>`<th class="${d.work?'':'we'} ${d.date===TODAY?'today':''}">${Number(d.date.slice(8))}<br><span style="font-weight:500">${WD[new Date(d.date+'T00:00').getDay()]}</span></th>`).join('');
   const cells=(x,cls)=>days.map(d=>{const q=x.daily[d.date];
     const wait=cls==='pl'&&x.materialReady&&d.date>=P.start&&d.date<x.materialReady&&d.date>=(st.ov[x.id]?.start||P.start);
@@ -411,8 +444,8 @@ V.plan=()=>{
     return `<td class="${d.work?'':'we'} ${d.date===TODAY?'today':''} ${cls==='pl'&&d.date===x.due?'due':''}">${q?`<span class="chip ${cls} ${late?'late':''}">${n0(Math.round(q))}</span>`:wait&&d.work?'<span class="chip wait" title="자재 대기"></span>':''}</td>`}).join('');
   let rows='';
   for(const k of [...P.resources.map(r=>r.key),null]){
-    const ex=P.existing.filter(s=>(s.resourceKey||null)===k),pl=P.planned.filter(p=>(p.resourceKey||null)===k);
-    if(k===null&&!ex.length&&!pl.length)continue;
+    const ex=exAll.filter(s=>(s.resourceKey||null)===k),pl=plAll.filter(p=>(p.resourceKey||null)===k);
+    if((k===null||filtering)&&!ex.length&&!pl.length)continue;
     if(k){const r=P.resources.find(x=>x.key===k);
       rows+=`<tr class="res"><td class="lbl">${esc(r.departmentCode)}/${esc(r.resourceCode)} <span class="muted" style="font-weight:500">· ${n0(r.hoursPerDay)}h/일</span></td>${days.map(d=>{const u=(r.load[d.date]||0)/r.hoursPerDay*100;
         const bg=u>100.5?'var(--bad2)':u>85?'var(--warn2)':u>0?'var(--accent2)':'';const fg=u>100.5?'var(--bad)':u>85?'var(--warn)':'var(--accent-t)';
@@ -423,7 +456,7 @@ V.plan=()=>{
   }
   const legend=`<div class="legend"><span><i style="background:var(--gray2)"></i>기존 작업지시</span><span><i style="background:var(--accent2)"></i>계획 작업지시</span><span><i style="background:var(--bad2)"></i>납기 초과</span><span><i style="background:repeating-linear-gradient(135deg,var(--warn2) 0 3px,transparent 3px 6px)"></i>자재 대기</span><span><i style="box-shadow:inset 0 -3px 0 #f59e0b;background:var(--panel2)"></i>납기일</span><span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 4px)"></i>휴무</span></div>`;
   const cols=[
-    {l:`<input type="checkbox" onclick="event.stopPropagation()" onchange="togAll(this.checked)" ${P.planned.filter(p=>p.releasable).every(p=>st.sel.has(p.id))&&P.planned.length?'checked':''}>`,h:p=>`<input type="checkbox" ${st.sel.has(p.id)?'checked':''} ${p.releasable?'':'disabled'} onchange="tog('${p.id}',this.checked)">`,sort:false},
+    {l:`<input type="checkbox" onclick="event.stopPropagation()" onchange="togAll(this.checked)" ${plAll.filter(p=>p.releasable).every(p=>st.sel.has(p.id))&&plAll.length?'checked':''}>`,h:p=>`<input type="checkbox" ${st.sel.has(p.id)?'checked':''} ${p.releasable?'':'disabled'} onchange="tog('${p.id}',this.checked)">`,sort:false},
     {k:'orderNumber',l:'수주',h:p=>`<span class="b">${esc(p.orderNumber)}-${esc(p.lineRef)}</span>`},
     {k:'customer',l:'고객'},
     {k:'itemCode',l:'품목',h:p=>item(p.itemCode,p.itemDesc,p.itemId)},
@@ -438,9 +471,12 @@ V.plan=()=>{
     {k:'late',l:'상태',v:p=>p.late?0:p.materialReady?1:2,h:jobState},
     {k:'note',l:'비고',h:p=>`<span class="small muted">${esc(p.note||'')}</span>`}];
   const I2=st.info,n=st.sel.size;
-  return panel('생산 일정',`${fd(P.start)} ~ ${fd(P.end)}`,`<div class="gw" data-keep="gantt"><table class="g"><thead><tr><th class="lbl">자원 / 작업지시</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`,legend)
+  const gantt=rows?`<div class="gw" data-keep="gantt"><table class="g"><thead><tr><th class="lbl">자원 / 작업지시</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+    :'<div class="empty">조회조건에 맞는 작업지시가 없습니다</div>';
+  return pfBar(exAll.length,plAll.length)
+   +panel('생산 일정',`${fd(P.start)} ~ ${fd(P.end)}`,gantt,legend)
    +`<div class="panel"><div class="ph"><h2>계획 작업지시</h2><span class="d">수량·시작일을 고치면 바로 재계산됩니다</span><div class="acts">${Object.keys(st.ov).length?`<button class="btn sec sm" onclick="st.ov={};loadPlan()">수정값 초기화</button>`:''}</div></div>
-     ${tbl('planned',cols,P.planned,{ph:'수주·품목·고객 검색',rc:p=>st.sel.has(p.id)?'sel':p.late?'hl':'',text:p=>[p.orderNumber,p.lineRef,p.customer,p.itemCode,p.itemDesc].join(' '),empty:'계획할 부족분이 없습니다'})}
+     ${tbl('planned',cols,plAll,{search:false,rc:p=>st.sel.has(p.id)?'sel':p.late?'hl':'',empty:filtering?'조회조건에 맞는 계획 작업지시가 없습니다':'계획할 부족분이 없습니다'})}
      ${I2.readOnly?`<div class="relbar">${tag('조회 전용','gray')}<span class="small t2">EBS 작업지시 생성(DB 반영) 기능은 비활성화되어 있습니다. 화면의 계획은 조회·검토용입니다.</span></div>`:`<div class="relbar"><b>${n}건 선택</b>
       <div class="field"><label>생성 상태</label><select onchange="st.statusType=+this.value"><option value="1" ${st.statusType==1?'selected':''}>1 미해제</option><option value="3" ${st.statusType==3?'selected':''}>3 해제</option></select></div>
       <div class="field"><label>회계 클래스</label><input style="width:90px" placeholder="${esc(P.org.defaultClass||'기본')}" value="${esc(st.classCode)}" onchange="st.classCode=this.value"></div>
@@ -749,7 +785,7 @@ async function resetItemLt(id){
 
 /* ---------- 동작 ---------- */
 function tog(id,on){on?st.sel.add(id):st.sel.delete(id);render()}
-function togAll(on){st.plan.planned.filter(p=>p.releasable).forEach(p=>on?st.sel.add(p.id):st.sel.delete(p.id));render()}
+function togAll(on){st.plan.planned.filter(p=>p.releasable&&matchPl(p)).forEach(p=>on?st.sel.add(p.id):st.sel.delete(p.id));render()}
 let ovTimer;
 function setOv(id,k,v){
   const o=st.ov[id]||(st.ov[id]={});
