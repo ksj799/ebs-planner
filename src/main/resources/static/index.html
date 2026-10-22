@@ -245,19 +245,19 @@ const I={ /* 아이콘 */
  mas:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
 const PAGES=[
  {g:'계획'},
- {k:'dash',t:'대시보드',i:'dash',sub:'계획 현황과 주의가 필요한 항목'},
- {k:'plan',t:'생산계획',i:'plan',sub:'병목 자원 기준 유한능력 일정 · 계획 작업지시 생성'},
- {k:'mat',t:'자재 소요',i:'mat',sub:'구매부품 수급 · 자재 대기 · 구매 제안'},
+ {k:'dash',t:'대시보드',i:'dash',sub:'오늘의 생산 현황'},
+ {k:'plan',t:'생산계획',i:'plan',sub:'자원별 생산 일정'},
+ {k:'mat',t:'자재 소요',i:'mat',sub:'부품 수급 현황과 구매가 필요한 품목'},
  {g:'구매 · 재고'},
- {k:'po',t:'구매 입고예정',i:'po',sub:'PO 납품일정 입고예정일 · 품목 리드타임 설정'},
- {k:'inv',t:'현재고',i:'inv',sub:'MTL_ONHAND_QUANTITIES_DETAIL · 보관장소/로케이터/로트별'},
+ {k:'po',t:'구매 입고예정',i:'po',sub:'발주 입고 일정과 리드타임 관리'},
+ {k:'inv',t:'현재고',i:'inv',sub:'창고별 재고 현황'},
  {g:'EBS'},
- {k:'dem',t:'수요 (수주)',i:'dem',sub:'OE_ORDER_LINES_ALL 미출하 수주라인'},
- {k:'job',t:'작업지시',i:'job',sub:'WIP_DISCRETE_JOBS 미완료 · 처리대기 인터페이스'},
- {k:'his',t:'생성 이력',i:'his',sub:'WIP_JOB_SCHEDULE_INTERFACE 적재 · Mass Load 결과'},
+ {k:'dem',t:'수요 (수주)',i:'dem',sub:'출하 대기 중인 수주'},
+ {k:'job',t:'작업지시',i:'job',sub:'진행 중인 작업지시'},
+ {k:'his',t:'생성 이력',i:'his',sub:'작업지시 생성 내역'},
  {g:'기준정보'},
- {k:'item',t:'품목 정보',i:'item',sub:'MTL_SYSTEM_ITEMS_B · 일반 계획 / MPS·MRP 계획 / 리드타임 / 재공'},
- {k:'mas',t:'자원 · 캘린더',i:'mas',sub:'자원 능력 · 품목별 병목 자원 · 휴무일'}];
+ {k:'item',t:'품목 정보',i:'item',sub:'품목별 계획 정보'},
+ {k:'mas',t:'자원 · 캘린더',i:'mas',sub:'설비 능력과 근무 일정'}];
 const PG=Object.fromEntries(PAGES.filter(p=>p.k).map(p=>[p.k,p]));
 
 const st={info:{},orgs:[],plan:null,ov:{},sel:new Set(),busy:0,page:PG[location.hash.slice(1)]?location.hash.slice(1):'dash',
@@ -271,7 +271,7 @@ async function api(path,opt){
   st.busy++;$('prog').hidden=false;
   // 응답이 4초 넘게 걸리면 (무료 서버가 깨어나는 중일 수 있음) 안내 표시
   const slowTimer=setTimeout(()=>{if(!slowToast){slowToast=document.createElement('div');slowToast.className='toast';
-    slowToast.textContent='서버를 준비하는 중입니다… 무료 호스팅이라 처음 접속 시 최대 1분 정도 걸릴 수 있습니다.';$('toasts').appendChild(slowToast)}},4000);
+    slowToast.textContent='잠시만 기다려 주세요. 처음 접속하면 1분 정도 걸릴 수 있습니다.';$('toasts').appendChild(slowToast)}},4000);
   try{
     const r=await fetch(path,opt);const t=await r.text();let j=null;
     try{j=t?JSON.parse(t):null}catch(e){j={message:t}}
@@ -295,12 +295,12 @@ async function init(){
     st.orgs=await api('/api/orgs');
     $('org').innerHTML=st.orgs.map(o=>`<option value="${o.organizationId}">${esc(o.code)} · ${esc(o.name)}</option>`).join('');
   }catch(e){$('view').innerHTML=`<div class="banner bad">초기화 실패: ${esc(e.message)}</div>`;return}
-  const bannerText=st.info.banner||(st.info.demo?'데모 모드 – 화면의 데이터는 모두 가상의 샘플입니다 (CRP/운영 EBS 아님)':'');
+  const bannerText=st.info.banner||(st.info.demo?'데모 화면입니다. 표시되는 데이터는 모두 예시입니다.':'');
   if(bannerText){const b=document.createElement('div');
     b.style.cssText=`background:${st.info.banner?'#4f46e5':'#dc2626'};color:#fff;text-align:center;padding:7px 12px;font-weight:700;font-size:13px`;
     b.textContent=bannerText;document.querySelector('.main').prepend(b)}
-  $('foot').innerHTML=`<div class="conn"><span class="dot ${st.info.demo?'demo':''}"></span>${st.info.demo?'데모 (H2)':'EBS 연결됨'}</div>
-    <div class="muted" style="margin-top:6px">${st.info.readOnly||!st.info.userConfigured?'조회 전용 (DB 반영 안 함)':'SOURCE_CODE '+esc(st.info.sourceCode)}</div>`;
+  $('foot').innerHTML=`<div class="conn"><span class="dot ${st.info.demo?'demo':''}"></span>${st.info.demo?'데모':'EBS 연결됨'}</div>
+    <div class="muted" style="margin-top:6px">${st.info.readOnly||!st.info.userConfigured?'조회 전용':'SOURCE_CODE '+esc(st.info.sourceCode)}</div>`;
   if(!st.orgs.length){$('view').innerHTML='<div class="banner bad">WIP 사용 조직(WIP_PARAMETERS)이 없습니다.</div>';return}
   $('org').onchange=()=>{st.ov={};st.sel.clear();st.cache={};st.it.list=null;st.it.id=null;st.it.d=null;loadPlan()};
   ['start','days','onhand'].forEach(id=>$(id).onchange=()=>loadPlan());
@@ -314,7 +314,7 @@ async function loadPlan(){
   try{
     st.plan=await send('POST','/api/plan',req());
     const ids=new Set(st.plan.planned.map(p=>p.id));st.sel=new Set([...st.sel].filter(i=>ids.has(i)));
-  }catch(e){toast('계획 계산 실패: '+e.message,1)}
+  }catch(e){toast('계획을 계산하지 못했습니다: '+e.message,1)}
   render();lazy();
 }
 async function lazy(){
@@ -425,7 +425,7 @@ function pfBar(nEx,nPl){
   const stOpts=[['','전체'],['late','납기지연'],['wait','자재대기'],['ok','정상'],['nort','라우팅없음']];
   const sel=(k,opts)=>`<select onchange="pfSet('${k}',this.value)">${opts.map(([v,t])=>`<option value="${v}" ${f[k]===v?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
   return `<div class="panel"><div class="pb" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-    <input class="search" id="pfq" style="min-width:300px;flex:1;max-width:460px" placeholder="품목 · 작업지시(J-20003) · 수주번호 · 고객 검색 (공백으로 여러 단어)" value="${esc(f.q)}" oninput="pfSet('q',this.value)">
+    <input class="search" id="pfq" style="min-width:300px;flex:1;max-width:460px" placeholder="품목, 작업지시, 수주번호, 고객으로 검색" value="${esc(f.q)}" oninput="pfSet('q',this.value)">
     <div class="field"><label>자원</label>${sel('res',resOpts)}</div>
     <div class="field"><label>상태</label>${sel('st',stOpts)}</div>
     <div class="seg">${[['','전체'],['ex','기존 작업지시'],['pl','계획 작업지시']].map(([v,t])=>`<button class="${f.kind===v?'on':''}" onclick="pfSet('kind','${v}')">${t}</button>`).join('')}</div>
@@ -475,9 +475,9 @@ V.plan=()=>{
     :'<div class="empty">조회조건에 맞는 작업지시가 없습니다</div>';
   return pfBar(exAll.length,plAll.length)
    +panel('생산 일정',`${fd(P.start)} ~ ${fd(P.end)}`,gantt,legend)
-   +`<div class="panel"><div class="ph"><h2>계획 작업지시</h2><span class="d">수량·시작일을 고치면 바로 재계산됩니다</span><div class="acts">${Object.keys(st.ov).length?`<button class="btn sec sm" onclick="st.ov={};loadPlan()">수정값 초기화</button>`:''}</div></div>
-     ${tbl('planned',cols,plAll,{search:false,rc:p=>st.sel.has(p.id)?'sel':p.late?'hl':'',empty:filtering?'조회조건에 맞는 계획 작업지시가 없습니다':'계획할 부족분이 없습니다'})}
-     ${I2.readOnly?`<div class="relbar">${tag('조회 전용','gray')}<span class="small t2">EBS 작업지시 생성(DB 반영) 기능은 비활성화되어 있습니다. 화면의 계획은 조회·검토용입니다.</span></div>`:`<div class="relbar"><b>${n}건 선택</b>
+   +`<div class="panel"><div class="ph"><h2>계획 작업지시</h2><span class="d">수량이나 시작일을 바꾸면 일정이 다시 계산됩니다</span><div class="acts">${Object.keys(st.ov).length?`<button class="btn sec sm" onclick="st.ov={};loadPlan()">수정값 초기화</button>`:''}</div></div>
+     ${tbl('planned',cols,plAll,{search:false,rc:p=>st.sel.has(p.id)?'sel':p.late?'hl':'',empty:filtering?'조회조건에 맞는 계획 작업지시가 없습니다':'새로 계획할 수주가 없습니다'})}
+     ${I2.readOnly?`<div class="relbar">${tag('조회 전용','gray')}<span class="small t2">조회 전용 화면입니다. 작업지시 생성은 사용할 수 없습니다.</span></div>`:`<div class="relbar"><b>${n}건 선택</b>
       <div class="field"><label>생성 상태</label><select onchange="st.statusType=+this.value"><option value="1" ${st.statusType==1?'selected':''}>1 미해제</option><option value="3" ${st.statusType==3?'selected':''}>3 해제</option></select></div>
       <div class="field"><label>회계 클래스</label><input style="width:90px" placeholder="${esc(P.org.defaultClass||'기본')}" value="${esc(st.classCode)}" onchange="st.classCode=this.value"></div>
       <button class="btn" ${n&&I2.userConfigured?'':'disabled'} onclick="confirmRelease()">EBS 작업지시 생성</button>
@@ -522,9 +522,9 @@ V.mat=()=>{
     ${kpi('구매 제안',P.purchases.length,`총 ${P.purchases.length?new Set(P.purchases.map(p=>p.itemId)).size:0}개 품목`,'acc')}
     ${kpi('리드타임 부족',urg.length,'필요일까지 입고 불가',urg.length?'bad':'ok')}
     ${kpi('자재 대기 작업지시',wait.length,'시작일이 밀린 계획',wait.length?'warn':'ok')}</div>
-   ${panel('구매부품 수급','현재고(Nettable) + PO 미입고 − 기존 작업지시 소요 − 계획 소요',tbl('mat',mc,P.materials,{sort:'shortage',dir:-1,ph:'부품 검색',rc:m=>m.shortage>0?'hl':'',text:m=>m.itemCode+' '+m.itemDesc,empty:'계획 작업지시에 구매부품 소요가 없습니다'}),`<button class="btn sec sm" onclick="go('po')">리드타임·입고일 설정</button>`)}
-   ${panel('구매 제안','발주 착수일 = 사용 가능일 − (후처리 + 처리 + 전처리 LT), 근무일 기준',tbl('pur',pc,P.purchases,{sort:'orderBy',ph:'품목·소요처 검색',rc:s=>s.late?'hl':'',text:s=>s.itemCode+' '+s.itemDesc+' '+s.forRef,empty:'구매 제안이 없습니다'}))}
-   ${panel('자재 대기 작업지시','구매부품 가용일까지 시작을 늦춘 계획',tbl('wait',wc,wait,{search:false,empty:'자재 때문에 밀린 계획이 없습니다'}))}`;
+   ${panel('구매부품 수급','재고와 입고 예정으로 필요량을 채울 수 있는지 보여줍니다',tbl('mat',mc,P.materials,{sort:'shortage',dir:-1,ph:'부품 검색',rc:m=>m.shortage>0?'hl':'',text:m=>m.itemCode+' '+m.itemDesc,empty:'필요한 구매부품이 없습니다'}),`<button class="btn sec sm" onclick="go('po')">리드타임·입고일 설정</button>`)}
+   ${panel('구매 제안','리드타임을 감안해 언제 발주해야 하는지 보여줍니다',tbl('pur',pc,P.purchases,{sort:'orderBy',ph:'품목·소요처 검색',rc:s=>s.late?'hl':'',text:s=>s.itemCode+' '+s.itemDesc+' '+s.forRef,empty:'구매 제안이 없습니다'}))}
+   ${panel('자재 대기 작업지시','부품이 들어올 때까지 시작이 늦춰진 작업',tbl('wait',wc,wait,{search:false,empty:'자재 때문에 늦어지는 작업이 없습니다'}))}`;
 };
 
 V.po=()=>{
@@ -535,7 +535,7 @@ V.po=()=>{
   const head=`<div class="kpis">
     ${kpi('미입고 납품일정',D.shipments.length,`총 ${new Set(D.shipments.map(s=>s.poNumber)).size}개 PO`,'acc')}
     ${kpi('입고 지연(예정일 경과)',pd,'오늘 입고로 가정',pd?'bad':'ok')}
-    ${kpi('입고예정일 수정',ovs,'플래너 설정값',ovs?'warn':'')}
+    ${kpi('입고예정일 수정',ovs,'직접 조정한 건수',ovs?'warn':'')}
     ${kpi('리드타임 수정 품목',lto,`구매품목 ${D.items.length}개 중`,lto?'warn':'')}</div>
    <div style="margin-bottom:14px">${seg}</div>`;
   if(st.poTab==='po'){
@@ -547,14 +547,14 @@ V.po=()=>{
       {k:'openQty',l:'미입고',num:1,h:s=>`<span class="b">${n0(s.openQty)}</span> <span class="muted small">${esc(s.poUom)}</span>`},
       {k:'needBy',l:'필요일',h:s=>fd(s.needBy)},
       {k:'promised',l:'약속일',h:s=>fd(s.promised)||'<span class="muted">–</span>'},
-      {k:'expected',l:'입고예정일 (수정)',h:s=>`<input class="inp ${s.overrideDate?'set':''}" type="date" value="${s.overrideDate||''}" onchange="setRcpt(${s.lineLocationId},this.value)" title="비우면 약속일 → 필요일 순으로 사용">${s.overrideDate?` <button class="btn sec sm icon" title="EBS 날짜로 되돌리기" onclick="setRcpt(${s.lineLocationId},'')">↺</button>`:''}`},
+      {k:'expected',l:'입고예정일 (수정)',h:s=>`<input class="inp ${s.overrideDate?'set':''}" type="date" value="${s.overrideDate||''}" onchange="setRcpt(${s.lineLocationId},this.value)" title="비워 두면 공급사 약속일을 사용합니다">${s.overrideDate?` <button class="btn sec sm icon" title="원래 날짜로 되돌리기" onclick="setRcpt(${s.lineLocationId},'')">↺</button>`:''}`},
       {k:'dateSource',l:'적용 기준',h:s=>tag(s.dateSource,s.dateSource==='수정'?'acc':'gray')},
       {k:'available',l:'사용 가능일',h:s=>`<span class="b">${fd(s.available)}</span>`},
       {k:'pastDue',l:'상태',v:s=>s.pastDue?0:1,h:s=>s.pastDue?tag('입고 지연','bad'):tag('예정','ok')},
       {k:'overrideNote',l:'메모',h:s=>s.overrideDate?`<input class="inp" style="width:180px" value="${esc(s.overrideNote||'')}" placeholder="변경 사유" onchange="setRcpt(${s.lineLocationId},'${s.overrideDate}',this.value)">`:'<span class="muted small">날짜 수정 시 입력</span>'}];
-    return head+panel('PO 납품일정','PO_LINE_LOCATIONS_ALL · 사용 가능일 = 입고예정일 + 후처리 리드타임',
+    return head+panel('PO 납품일정','입고예정일을 바꾸면 계획에 바로 반영됩니다',
       tbl('po',c,D.shipments,{sort:'expected',ph:'PO·공급사·품목 검색',rc:s=>s.pastDue?'hl':'',text:s=>[s.poNumber,s.supplier,s.itemCode,s.itemDesc].join(' ')}),
-      '<span class="small muted">수정값은 플래너에만 저장되고 EBS PO 는 바뀌지 않습니다</span>');
+      '<span class="small muted">여기서 바꾼 날짜는 계획 검토용이며 실제 발주에는 반영되지 않습니다</span>');
   }
   const inp=(i,f,e)=>`<input class="inp lt ${i.overridden&&i[f]!==i[e]?'set':''}" id="lt-${i.itemId}-${f}" type="number" min="0" step="1" value="${i.overridden?i[f]:''}" placeholder="${i[e]}" onchange="setLt(${i.itemId})">`;
   const c=[
@@ -564,12 +564,12 @@ V.po=()=>{
     {k:'full',l:'처리 (조달)',num:1,h:i=>inp(i,'full','ebsFull')},
     {k:'post',l:'후처리 (검수)',num:1,h:i=>inp(i,'post','ebsPost')},
     {k:'totalLt',l:'총 LT',num:1,h:i=>`<span class="b">${n0(i.totalLt)}</span>일`},
-    {k:'ebsFull',l:'EBS 값',sort:false,h:i=>`<span class="muted small">${n0(i.ebsPre)} / ${n0(i.ebsFull)} / ${n0(i.ebsPost)}</span>`},
+    {k:'ebsFull',l:'기본값',sort:false,h:i=>`<span class="muted small">${n0(i.ebsPre)} / ${n0(i.ebsFull)} / ${n0(i.ebsPost)}</span>`},
     {k:'minOrder',l:'최소주문',num:1,h:i=>n0(i.minOrder)||'<span class="muted">–</span>'},
     {k:'lotMultiplier',l:'주문배수',num:1,h:i=>n0(i.lotMultiplier)||'<span class="muted">–</span>'},
-    {k:'overridden',l:'',v:i=>i.overridden?0:1,h:i=>i.overridden?`${tag('수정됨','acc')} <button class="btn sec sm icon" title="EBS 값으로 되돌리기" onclick="resetLt(${i.itemId})">↺</button>`:''}];
-  return head+panel('품목 리드타임','MTL_SYSTEM_ITEMS_B 전처리 · 처리 · 후처리 리드타임 (근무일) · 빈칸 = EBS 값 사용',
-    tbl('lt',c,D.items,{sort:'itemCode',ph:'품목 검색',text:i=>i.itemCode+' '+i.itemDesc}),'<span class="small muted">구매 제안·PO 사용 가능일 계산에 바로 반영됩니다</span>');
+    {k:'overridden',l:'',v:i=>i.overridden?0:1,h:i=>i.overridden?`${tag('수정됨','acc')} <button class="btn sec sm icon" title="기본값으로 되돌리기" onclick="resetLt(${i.itemId})">↺</button>`:''}];
+  return head+panel('품목 리드타임','근무일 기준이며, 비워 두면 기본값을 사용합니다',
+    tbl('lt',c,D.items,{sort:'itemCode',ph:'품목 검색',text:i=>i.itemCode+' '+i.itemDesc}),'<span class="small muted">저장하면 구매 제안에 바로 반영됩니다</span>');
 };
 
 V.inv=()=>{
@@ -612,16 +612,16 @@ V.dem=()=>{
     {k:'coveredQty',l:'기존공급 충당',num:1,h:d=>n0(d.coveredQty)},{k:'shortQty',l:'부족',num:1,h:d=>d.shortQty>0?`<span class="b">${n0(d.shortQty)}</span>`:''},
     {k:'plannedId',l:'계획 완료',h:d=>{const p=pm[d.plannedId];return p&&p.finish?fd(p.finish):''}},
     {k:'st',l:'상태',sort:false,h:d=>{const p=pm[d.plannedId];return d.shortQty<=0?tag('충당','ok'):!p||!p.releasable?tag('계획불가','bad'):p.late?tag('지연예상','bad'):tag('계획','acc')}}];
-  return panel('미출하 수주라인',`출하예정일(없으면 요청일) ${fd(P.end)} 까지`,tbl('dem',c,P.demands,{sort:'due',ph:'수주·고객·품목 검색',text:d=>[d.orderNumber,d.customer,d.itemCode,d.itemDesc].join(' ')}));
+  return panel('미출하 수주라인',`${fd(P.end)}까지 출하 예정`,tbl('dem',c,P.demands,{sort:'due',ph:'수주·고객·품목 검색',text:d=>[d.orderNumber,d.customer,d.itemCode,d.itemDesc].join(' ')}));
 };
 
 V.job=()=>{
-  const c=[{k:'source',l:'구분',h:s=>(s.source==='WIP'?tag('WIP','gray'):tag('IF 대기','warn'))+(s.plannerCreated?' '+tag('플래너','acc'):'')},
+  const c=[{k:'source',l:'구분',h:s=>(s.source==='WIP'?tag('WIP','gray'):tag('IF 대기','warn'))+(s.plannerCreated?' '+tag('계획 생성','acc'):'')},
     {k:'ref',l:'작업지시',h:s=>`<span class="b code">${esc(s.ref)}</span>`},{k:'itemCode',l:'품목',h:s=>item(s.itemCode,s.itemDesc,s.itemId)},
     {k:'status',l:'상태',h:s=>tag(s.status,s.statusType===3?'ok':s.statusType===6?'bad':'gray')},{k:'remainQty',l:'잔량',num:1,h:s=>n0(s.remainQty)},
     {k:'start',l:'시작',h:s=>fd(s.start)},{k:'completion',l:'완료예정',h:s=>fd(s.completion)},
     {k:'resourceKey',l:'병목자원',h:s=>s.resourceKey?esc(resName(s.resourceKey)):'–'},{k:'note',l:'비고',h:s=>`<span class="small muted">${esc(s.note||'')}</span>`}];
-  return panel('미완료 작업지시','WIP_DISCRETE_JOBS 상태 1·3·6 + 처리대기 인터페이스',tbl('job',c,st.plan.existing,{sort:'completion',ph:'작업지시·품목 검색'}));
+  return panel('미완료 작업지시','미해제·해제·보류 상태',tbl('job',c,st.plan.existing,{sort:'completion',ph:'작업지시·품목 검색'}));
 };
 
 V.his=()=>{
@@ -632,7 +632,7 @@ V.his=()=>{
     {k:'qty',l:'수량',num:1,h:r=>n0(r.qty)},{k:'startDate',l:'시작일',h:r=>fd(r.startDate)},{k:'status',l:'상태',h:r=>tag(r.status,cls(r.status))},
     {k:'jobName',l:'작업지시',h:r=>`<span class="b code">${esc(r.jobName||'')}</span>`},{k:'created',l:'적재일',h:r=>fd(r.created)},{k:'description',l:'설명',h:r=>`<span class="small">${esc(r.description)}</span>`},
     {k:'errors',l:'오류',sort:false,h:r=>`<span class="small" style="color:var(--bad);white-space:normal">${r.errors.map(esc).join('<br>')}</span>`}];
-  return panel('작업지시 생성 이력',`SOURCE_CODE=${esc(st.info.sourceCode)} · 최근 14일`,tbl('his',c,L,{ph:'품목·작업지시 검색'}),`<button class="btn sec sm" onclick="delete st.cache.interface;lazy()">새로고침</button>`);
+  return panel('작업지시 생성 이력','최근 14일',tbl('his',c,L,{ph:'품목·작업지시 검색'}),`<button class="btn sec sm" onclick="delete st.cache.interface;lazy()">새로고침</button>`);
 };
 
 V.mas=()=>{
@@ -644,9 +644,9 @@ V.mas=()=>{
   const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'병목 부서/자원',h:i=>`${esc(i.departmentCode)}/${esc(i.resourceCode)}`},
     {k:'hoursPerUnit',l:'개당(h)',num:1,h:i=>Number(i.hoursPerUnit).toFixed(4)},{k:'setupHours',l:'셋업(h)',num:1,h:i=>n0(i.setupHours)},
     {k:'maxPerDay',l:'일 최대',num:1,h:i=>n0(Math.floor(i.maxPerDay))},{k:'operationCount',l:'공정자원',num:1}];
-  return panel('자원 능력','BOM_DEPARTMENT_RESOURCES · BOM_RESOURCE_SHIFTS · 시간 단위(HR/MIN/SEC) 자원만',tbl('mres',rc,M.resources,{search:false}))
-   +panel('품목별 병목 자원','주 라우팅에서 개당 시간이 가장 큰 부서-자원',tbl('mrt',ic,M.routings,{ph:'품목 검색'}))
-   +panel('휴무일',`캘린더 ${esc(M.org.calendarCode)} · 향후 90일`,`<div style="display:flex;flex-wrap:wrap;gap:6px">${M.nonWorkDays.map(d=>{const w=new Date(d+'T00:00').getDay();return tag(fd(d),w===0||w===6?'gray':'warn')}).join('')}</div>`,'',false);
+  return panel('자원 능력','부서별 설비의 하루 가동 시간',tbl('mres',rc,M.resources,{search:false}))
+   +panel('품목별 병목 자원','품목마다 가장 오래 걸리는 공정',tbl('mrt',ic,M.routings,{ph:'품목 검색'}))
+   +panel('휴무일','앞으로 90일',`<div style="display:flex;flex-wrap:wrap;gap:6px">${M.nonWorkDays.map(d=>{const w=new Date(d+'T00:00').getDay();return tag(fd(d),w===0||w===6?'gray':'warn')}).join('')}</div>`,'',false);
 };
 
 /* ---------- 품목 정보 (Oracle 품목 화면 계획 탭) ---------- */
@@ -694,12 +694,12 @@ function openItem(id){st.it.d=null;st.it.id=id;st.it.tab='main';if(st.page!=='it
 V.item=()=>{
   const it=st.it,L=it.list;
   const list=`<div class="panel" style="margin:0"><div class="tt" style="flex-direction:column;align-items:stretch">
-     <input class="search" id="itq" style="min-width:0;width:100%" placeholder="품번 · 설명 검색" value="${esc(it.q)}" oninput="itSearch(this.value)">
+     <input class="search" id="itq" style="min-width:0;width:100%" placeholder="품번 또는 품명 검색" value="${esc(it.q)}" oninput="itSearch(this.value)">
      <div class="seg">${[['','전체'],['1','제조'],['2','구매']].map(([v,t])=>`<button class="${it.mb===v?'on':''}" onclick="st.it.mb='${v}';st.it.list=null;loadItems()">${t}</button>`).join('')}</div></div>
    <div class="il" data-keep="itemlist">${!L?'<div class="empty">불러오는 중…</div>':!L.length?'<div class="empty">검색 결과 없음</div>':L.map(x=>`<div class="il-row ${x.inventory_item_id===it.id?'on':''}" onclick="loadItem(${x.inventory_item_id})">
      <div class="m"><div class="c">${esc(x.item_code)}</div><div class="d">${esc(x.item_desc)}</div></div>
      ${tag(x.planning_make_buy_code==1?'제조':'구매',x.planning_make_buy_code==1?'info':'gray')}<span class="small muted" title="전처리+처리+후처리">${n0(x.total_lead_time)}일</span></div>`).join('')}</div>
-   ${L&&L.length>=300?'<div class="small muted" style="padding:8px 16px">상위 300건만 표시 – 검색어를 입력하세요</div>':''}</div>`;
+   ${L&&L.length>=300?'<div class="small muted" style="padding:8px 16px">300건까지만 보입니다. 검색어로 좁혀 주세요.</div>':''}</div>`;
   return `<div class="ip">${list}<div class="panel" style="margin:0">${it.d?itemDetail(it.d):`<div class="empty">${it.id?'불러오는 중…':'품목을 선택하세요'}</div>`}</div></div>`;
 };
 
@@ -751,16 +751,16 @@ function itemDetail(D){
     const ep=o&&o.pre!=null?o.pre:pre,ef=o&&o.full!=null?o.full:full,eo=o&&o.post!=null?o.post:post,tot=Math.max(ep+ef+eo,0.0001);
     const bar=`<div class="ltbar">${[[ep,'전처리','#94a3b8'],[ef,'처리','#6366f1'],[eo,'후처리','#0ea5e9']].filter(x=>x[0]>0).map(([v,l,c])=>`<div style="flex:${v/tot};background:${c}">${l} ${n0(v)}일</div>`).join('')||'<div style="flex:1;background:var(--gray2);color:var(--muted)">리드타임 없음</div>'}</div>`;
     const ovIn=(f,ebs)=>`<input class="inp lt ${o&&o[f]!=null?'set':''}" style="width:100%;height:32px" id="lt-${a.inventory_item_id}-${f}" type="number" min="0" step="1" value="${o&&o[f]!=null?o[f]:''}" placeholder="EBS ${n0(ebs)}">`;
-    body=`<div class="fs"><h3>계획에 적용되는 리드타임 ${o?tag('플래너 수정값 적용','warn'):tag('EBS 값','gray')}</h3>${bar}<div class="small t2">총 ${n0(ep+ef+eo)}일 (근무일) · 구매 제안 발주 착수일과 PO 사용 가능일 계산에 사용</div></div>`
+    body=`<div class="fs"><h3>계획에 적용되는 리드타임 ${o?tag('조정값 적용','warn'):tag('기본값','gray')}</h3>${bar}<div class="small t2">총 ${n0(ep+ef+eo)}일 (근무일 기준)</div></div>`
      +sec('처리 리드타임 (Processing)',fld(a,'전처리','Preprocessing','preprocessing_lead_time','num')+fld(a,'처리','Processing','full_lead_time','num')+fld(a,'후처리','Postprocessing','postprocessing_lead_time','num'))
      +sec('제조 리드타임 (Manufacturing)',fld(a,'고정','Fixed','fixed_lead_time','num')+fld(a,'변동','Variable','variable_lead_time','num')+fld(a,'리드타임 로트 크기','Lead Time Lot Size','lead_time_lot_size','num'))
      +sec('누적 리드타임 (Cumulative)',fld(a,'누적 제조','Cumulative Manufacturing','cum_manufacturing_lead_time','num')+fld(a,'누적 총','Cumulative Total','cumulative_total_lead_time','num'))
-     +`<div class="fs"><h3>플래너 수정값 (EBS 에는 저장되지 않음)</h3><div class="fg">
+     +`<div class="fs"><h3>리드타임 조정</h3><div class="fg">
         <div class="f"><label>전처리<small>Preprocessing</small></label>${ovIn('pre',pre)}</div>
         <div class="f"><label>처리<small>Processing</small></label>${ovIn('full',full)}</div>
         <div class="f"><label>후처리<small>Postprocessing</small></label>${ovIn('post',post)}</div></div>
         <div style="display:flex;gap:8px;margin:0 0 16px"><button class="btn sm" onclick="saveItemLt(${a.inventory_item_id})">저장 후 재계산</button>${o?`<button class="btn sec sm" onclick="resetItemLt(${a.inventory_item_id})">EBS 값으로 되돌리기</button>`:''}
-        <span class="small muted" style="align-self:center">${mb?'제조품목은 현재 계획 엔진이 라우팅 능력으로 일정을 잡으므로 이 값은 참고용입니다':'빈칸은 EBS 값을 사용합니다'}</span></div></div>`;
+        <span class="small muted" style="align-self:center">${mb?'제조품목은 설비 능력으로 일정을 잡기 때문에 참고용입니다':'비워 두면 기본값을 사용합니다'}</span></div></div>`;
   }else if(t==='wip'){
     body=sec('재공 (Work In Process)',fld(a,'작업지시 생성','Build in WIP','build_in_wip_flag','flag')+fld(a,'공급 유형','Supply Type','wip_supply_type','dec')
        +fld(a,'공급 보관장소','Supply Subinventory','wip_supply_subinventory'))
@@ -770,17 +770,17 @@ function itemDetail(D){
     const bc=(isWU)=>[{k:'item_code',l:isWU?'상위 품목':'구성품',h:x=>item(x.item_code,x.item_desc,x.item_id)},{k:'planning_make_buy_code',l:'구분',h:x=>tag(x.planning_make_buy_code==1?'제조':'구매',x.planning_make_buy_code==1?'info':'gray')},
       {k:'component_quantity',l:'단위당 수량',num:1,h:x=>n0(x.component_quantity)},{k:'component_yield_factor',l:'수율',num:1,h:x=>n0(x.component_yield_factor)},
       {k:'primary_uom_code',l:'단위'},{k:'wip_supply_type',l:'공급 유형',h:x=>esc(DEC.wip_supply_type[x.wip_supply_type]||'')}];
-    body=`<div class="fs"><h3>BOM 구성품 (주 BOM 1단계)</h3></div>${tbl('ibom',bc(false),D.bom,{search:false,empty:'BOM 없음'})}
+    body=`<div class="fs"><h3>BOM 구성품</h3></div>${tbl('ibom',bc(false),D.bom,{search:false,empty:'BOM 없음'})}
       <div class="fs"><h3>사용처 (Where Used)</h3></div>${tbl('iwu',bc(true),D.whereUsed,{search:false,empty:'사용처 없음'})}<div style="height:12px"></div>`;
   }
   return head+body;
 }
 async function saveItemLt(id){
   const v=f=>{const x=$(`lt-${id}-${f}`).value;return x===''?null:Number(x)};
-  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id,pre:v('pre'),full:v('full'),post:v('post')});delete st.cache.purchasing;toast('리드타임 저장 · 계획 재계산');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id,pre:v('pre'),full:v('full'),post:v('post')});delete st.cache.purchasing;toast('리드타임을 저장했습니다');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
 }
 async function resetItemLt(id){
-  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id});delete st.cache.purchasing;toast('EBS 리드타임으로 복원');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId:id});delete st.cache.purchasing;toast('기본 리드타임으로 되돌렸습니다');await loadItem(id);await loadPlan()}catch(e){toast(e.message,1)}
 }
 
 /* ---------- 동작 ---------- */
@@ -793,18 +793,18 @@ function setOv(id,k,v){
   if(!Object.keys(o).length)delete st.ov[id];
   clearTimeout(ovTimer);ovTimer=setTimeout(loadPlan,250);
 }
-async function afterSetting(msg){delete st.cache.purchasing;toast(msg+' · 계획 재계산');await loadPlan()}
+async function afterSetting(msg){delete st.cache.purchasing;toast(msg);await loadPlan()}
 async function setRcpt(id,date,note){
-  try{await send('PUT','/api/purchasing/receipt',{orgId:orgId(),lineLocationId:id,date,note});await afterSetting(date?'입고예정일 저장':'EBS 날짜로 복원')}
+  try{await send('PUT','/api/purchasing/receipt',{orgId:orgId(),lineLocationId:id,date,note});await afterSetting(date?'입고예정일을 저장했습니다':'원래 날짜로 되돌렸습니다')}
   catch(e){toast(e.message,1)}
 }
 async function setLt(itemId){
   const v=f=>{const x=$(`lt-${itemId}-${f}`).value;return x===''?null:Number(x)};
-  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId,pre:v('pre'),full:v('full'),post:v('post')});await afterSetting('리드타임 저장')}
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId,pre:v('pre'),full:v('full'),post:v('post')});await afterSetting('리드타임을 저장했습니다')}
   catch(e){toast(e.message,1)}
 }
 async function resetLt(itemId){
-  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId});await afterSetting('EBS 리드타임으로 복원')}catch(e){toast(e.message,1)}
+  try{await send('PUT','/api/purchasing/leadtime',{orgId:orgId(),itemId});await afterSetting('기본 리드타임으로 되돌렸습니다')}catch(e){toast(e.message,1)}
 }
 function confirmRelease(){
   const list=st.plan.planned.filter(p=>st.sel.has(p.id)),late=list.filter(p=>p.late).length,wait=list.filter(p=>p.materialReady).length;
@@ -813,7 +813,7 @@ function confirmRelease(){
     <dt>상태</dt><dd>${st.statusType==1?'1 미해제':'3 해제'}</dd><dt>회계 클래스</dt><dd>${esc(st.classCode||st.plan.org.defaultClass||'기본')}</dd>
     <dt>처리</dt><dd>${st.info.submitMassLoad?'적재 후 WIP Mass Load 자동 제출':'WIP_JOB_SCHEDULE_INTERFACE 적재만'}</dd></dl>
     ${late?`<div class="banner bad" style="margin:8px 0 0">납기 지연 예상 ${late}건 포함</div>`:''}${wait?`<div class="banner" style="margin:8px 0 0">자재 대기 ${wait}건 포함 – 시작일이 자재 가용일로 설정됩니다</div>`:''}
-    <p class="small">서버가 최신 EBS 데이터로 다시 계산한 값으로 적재합니다.</p></div>
+    <p class="small">생성 직전에 최신 데이터로 한 번 더 계산합니다.</p></div>
     <div class="df"><button class="btn sec" onclick="$('dlg').close()">취소</button><button class="btn" id="go">생성</button></div>`;
   $('dlg').showModal();
   $('go').onclick=async()=>{

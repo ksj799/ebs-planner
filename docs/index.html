@@ -39,12 +39,12 @@ ul{color:var(--text2);padding-left:20px;margin:24px 0 0}
 <div class="wrap">
   <div class="brand"><div class="logo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M3 21V9l6 4V9l6 4V5h6v16z"/></svg></div>EBS Planner</div>
   <h1>Oracle EBS 기반 생산계획 웹 – 라이브 데모</h1>
-  <p class="lead">수주 → 자재(BOM·구매 리드타임) → 능력(병목 자원)까지 계산하는 유한능력 생산계획 프로그램입니다. 모든 데이터는 가상 데이터입니다.</p>
+  <p class="lead">수주를 기준으로 자재와 설비 능력을 함께 따져 생산 일정을 세우는 프로그램입니다. 화면의 데이터는 모두 예시입니다.</p>
 
   <div class="card" id="card">
-    <div class="status"><span class="spin"></span><span id="msg">데모 서버 상태를 확인하는 중…</span></div>
+    <div class="status"><span class="spin"></span><span id="msg">데모를 여는 중입니다…</span></div>
     <div class="bar"><i id="bar"></i></div>
-    <p class="note" id="sub">무료 호스팅을 사용해, 한동안 접속이 없었다면 서버를 깨우는 데 <b>최대 1분</b> 정도 걸립니다. 준비되면 자동으로 이동합니다.</p>
+    <p class="note" id="sub">처음 접속하면 화면이 열리기까지 <b>1분 정도</b> 걸릴 수 있습니다. 준비되면 자동으로 이동합니다.</p>
     <div class="actions">
       <a class="btn pri" id="go" href="https://ebs-planner.onrender.com/">데모 바로 열기</a>
       <a class="btn" href="https://github.com/ksj799/ebs-planner">소스 코드 (GitHub)</a>
@@ -53,12 +53,12 @@ ul{color:var(--text2);padding-left:20px;margin:24px 0 0}
 
   <div class="shot">
     <img src="screenshots/01-dashboard.jpg" alt="대시보드 화면 미리보기">
-    <p>대시보드 미리보기 – 미출하 수주, 납기 지연 예상, 자재 대기, 자원 부하율</p>
+    <p>대시보드 화면</p>
   </div>
   <ul>
-    <li>생산계획: 자원별 간트 차트와 일별 부하율, 수량·시작일 수정 시 즉시 재계산</li>
-    <li>자재 소요: 1단계 BOM 구매부품 수급, 리드타임을 반영한 구매 제안</li>
-    <li>품목 정보: Oracle 품목 화면의 일반 계획 · MPS/MRP 계획 · 리드타임 탭</li>
+    <li>생산계획: 설비별 일정표와 하루 부하율, 수량을 바꾸면 바로 다시 계산</li>
+    <li>자재 소요: 부품 재고·입고 예정 확인, 리드타임을 감안한 구매 제안</li>
+    <li>품목 정보: Oracle 품목 화면의 계획·리드타임 정보</li>
   </ul>
 </div>
 <script>
@@ -67,8 +67,8 @@ const msg=document.getElementById('msg'),sub=document.getElementById('sub'),bar=
 const t0=Date.now(),EXPECT=60000;
 let done=false,slow=false;
 const tick=setInterval(()=>{if(done)return;const p=Math.min(95,(Date.now()-t0)/EXPECT*100);bar.style.width=p+'%';
-  if(!slow&&Date.now()-t0>3000){slow=true;msg.textContent='서버를 깨우는 중입니다… (최대 1분)'}
-  if(Date.now()-t0>EXPECT+30000){msg.textContent='평소보다 오래 걸리고 있습니다. "데모 바로 열기"를 눌러 주세요.'}},500);
+  if(!slow&&Date.now()-t0>3000){slow=true;msg.textContent='데모를 준비하고 있습니다. 잠시만 기다려 주세요…'}
+  if(Date.now()-t0>EXPECT+30000){msg.textContent='조금 더 걸리고 있습니다. "데모 바로 열기"를 눌러 주세요.'}},500);
 async function check(){
   if(done)return;
   try{
@@ -80,7 +80,7 @@ async function check(){
 }
 function ready(){
   done=true;clearInterval(tick);bar.style.width='100%';card.classList.add('done');
-  msg.textContent='준비 완료! 데모로 이동합니다…';sub.textContent='자동으로 이동하지 않으면 아래 버튼을 눌러 주세요.';
+  msg.textContent='준비됐습니다. 데모로 이동합니다…';sub.textContent='자동으로 이동하지 않으면 아래 버튼을 눌러 주세요.';
   setTimeout(()=>location.href=APP,slow?1200:400);
 }
 check();
