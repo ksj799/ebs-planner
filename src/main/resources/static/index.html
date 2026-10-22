@@ -653,7 +653,7 @@ V.mas=()=>{
 const FENCE={1:'누적 총 리드타임 (Cumulative Total LT)',2:'누적 제조 리드타임 (Cumulative Mfg. LT)',3:'총 리드타임 (Total LT)',4:'사용자 정의 (User-Defined)',5:'자동 해제 안 함 (Do Not Autorelease)',6:'해제 안 함 (Kanban)'};
 const DEC={
   inventory_planning_code:{1:'재주문점 (Reorder Point)',2:'최소-최대 (Min-Max)',6:'계획 안 함 (Not Planned)',7:'공급사 관리 (Vendor Managed)'},
-  planning_make_buy_code:{1:'제조 (Make)',2:'구매 (Buy)'},
+  planning_make_buy_code:{1:'제조',2:'구매'},
   mrp_safety_stock_code:{1:'비MRP 계획 (Non-MRP Planned)',2:'MRP 계획 비율 (MRP Planned %)'},
   source_type:{1:'재고 조직 (Inventory)',2:'공급사 (Supplier)',3:'보관장소 (Subinventory)'},
   mrp_planning_code:{3:'MRP 계획 (MRP Planning)',4:'MPS 계획 (MPS Planning)',6:'계획 안 함 (Not Planned)',7:'MRP 및 DRP 계획',8:'MPS 및 DRP 계획',9:'DRP 계획'},
@@ -669,15 +669,17 @@ const fval=(a,k,kind)=>{
   if(kind==='flag'){const on=v==='Y'||v===1||v==='1';return `<div class="fv"><span class="cb ${on?'on':''}">${on?'✓':''}</span>${on?'예':'아니오'}</div>`}
   if(nz(v))return '<div class="fv empty">미설정</div>';
   let s;
-  if(kind==='dec'){const m=DEC[k]||{};s=m[v]?`${esc(m[v])} <span class="muted small">(${esc(v)})</span>`:esc(v)}
+  if(kind==='dec'){const m=DEC[k]||{};s=m[v]?esc(ko(m[v])):esc(v)}
   else if(kind==='num')s=Number(v).toLocaleString('ko-KR',{maximumFractionDigits:4});
   else s=esc(v);
   return `<div class="fv">${s}</div>`;
 };
-const fld=(a,label,en,k,kind,extra)=>`<div class="f"><label>${label}<small>${en}</small></label>${extra?extra(a):fval(a,k,kind)}</div>`;
-const sec=(t,body)=>`<div class="fs"><h3>${t}</h3><div class="fg">${body}</div></div>`;
+// 한글 라벨만 보이고, 마우스를 올리면 Oracle 원래 항목명이 보인다
+const ko=s=>String(s).replace(/\s*\([A-Za-z][^)]*\)\s*$/,'');
+const fld=(a,label,en,k,kind,extra)=>`<div class="f" title="${esc(en)}"><label>${label}</label>${extra?extra(a):fval(a,k,kind)}</div>`;
+const sec=(t,body)=>`<div class="fs"><h3>${ko(t)}</h3><div class="fg">${body}</div></div>`;
 const both=(code,days)=>a=>{const c=a[code],d=a[days];if(nz(c))return '<div class="fv empty">미설정</div>';
-  return `<div class="fv">${esc(FENCE[c]||c)}${!nz(d)?` <span class="tag acc">${n0(d)}일</span>`:''}</div>`};
+  return `<div class="fv">${esc(ko(FENCE[c]||c))}${!nz(d)?` <span class="tag acc">${n0(d)}일</span>`:''}</div>`};
 
 async function loadItems(){
   try{const it=st.it;it.list=await api(`/api/items?orgId=${orgId()}&q=${encodeURIComponent(it.q)}${it.mb?`&makeBuy=${it.mb}`:''}`);
@@ -705,10 +707,10 @@ V.item=()=>{
 
 function itemDetail(D){
   const a=D.attrs,s=D.supply,o=D.leadTimeOverride,mb=a.planning_make_buy_code==1;
-  const TABS=[['main','주요'],['gp','일반 계획'],['mrp','MPS/MRP 계획'],['lt','리드타임'],['wip','재공 (WIP)'],['bom',`BOM · 사용처 (${D.bom.length}/${D.whereUsed.length})`]];
+  const TABS=[['main','주요'],['gp','일반 계획'],['mrp','MPS/MRP 계획'],['lt','리드타임'],['wip','재공'],['bom',`BOM · 사용처 (${D.bom.length}/${D.whereUsed.length})`]];
   const head=`<div class="ih"><div class="code">${esc(a.item_code)}</div><div class="t2">${esc(a.item_desc)}</div>
-    <div class="tags">${tag(mb?'제조 (Make)':'구매 (Buy)',mb?'info':'gray')}${a.item_type?tag(a.item_type_meaning||a.item_type,'acc'):''}${tag(a.inventory_item_status_code||'–',a.inventory_item_status_code==='Active'?'ok':'warn')}
-    ${a.planner_code?tag('계획자 '+(a.planner_name||a.planner_code),'gray'):''}${tag(DEC.mrp_planning_code[a.mrp_planning_code]||'MRP '+a.mrp_planning_code,'gray')}${o?tag('리드타임 수정됨','warn'):''}</div></div>
+    <div class="tags">${tag(mb?'제조':'구매',mb?'info':'gray')}${a.item_type?tag(a.item_type_meaning||a.item_type,'acc'):''}${tag(a.inventory_item_status_code||'–',a.inventory_item_status_code==='Active'?'ok':'warn')}
+    ${a.planner_code?tag('계획자 '+(a.planner_name||a.planner_code),'gray'):''}${tag(ko(DEC.mrp_planning_code[a.mrp_planning_code]||'MRP '+a.mrp_planning_code),'gray')}${o?tag('리드타임 수정됨','warn'):''}</div></div>
    <div class="sup"><div><div class="l">가용 재고</div><div class="v">${n0(s.onhand_nettable)}</div></div><div><div class="l">비가용 재고</div><div class="v">${n0(s.onhand_other)}</div></div>
     <div><div class="l">PO 미입고</div><div class="v">${n0(s.po_open)}</div></div><div><div class="l">작업지시 잔량</div><div class="v">${n0(s.wip_open)}</div></div><div><div class="l">수주 미출하</div><div class="v">${n0(s.so_open)}</div></div></div>
    <div class="tabs">${TABS.map(([k,t])=>`<button class="${st.it.tab===k?'on':''}" onclick="st.it.tab='${k}';render()">${t}</button>`).join('')}</div>`;
@@ -769,9 +771,9 @@ function itemDetail(D){
   }else{
     const bc=(isWU)=>[{k:'item_code',l:isWU?'상위 품목':'구성품',h:x=>item(x.item_code,x.item_desc,x.item_id)},{k:'planning_make_buy_code',l:'구분',h:x=>tag(x.planning_make_buy_code==1?'제조':'구매',x.planning_make_buy_code==1?'info':'gray')},
       {k:'component_quantity',l:'단위당 수량',num:1,h:x=>n0(x.component_quantity)},{k:'component_yield_factor',l:'수율',num:1,h:x=>n0(x.component_yield_factor)},
-      {k:'primary_uom_code',l:'단위'},{k:'wip_supply_type',l:'공급 유형',h:x=>esc(DEC.wip_supply_type[x.wip_supply_type]||'')}];
+      {k:'primary_uom_code',l:'단위'},{k:'wip_supply_type',l:'공급 유형',h:x=>esc(ko(DEC.wip_supply_type[x.wip_supply_type]||''))}];
     body=`<div class="fs"><h3>BOM 구성품</h3></div>${tbl('ibom',bc(false),D.bom,{search:false,empty:'BOM 없음'})}
-      <div class="fs"><h3>사용처 (Where Used)</h3></div>${tbl('iwu',bc(true),D.whereUsed,{search:false,empty:'사용처 없음'})}<div style="height:12px"></div>`;
+      <div class="fs"><h3>사용처</h3></div>${tbl('iwu',bc(true),D.whereUsed,{search:false,empty:'사용처 없음'})}<div style="height:12px"></div>`;
   }
   return head+body;
 }
