@@ -15,4 +15,4 @@ SELECT bd.department_id,
  WHERE bd.organization_id = :orgId
    AND (bd.disable_date IS NULL OR bd.disable_date > :today)
    AND (br.disable_date IS NULL OR br.disable_date > :today)
- ORDER BY bd.department_code, br.resource_code
+ ORDER BY bd.description, bd.department_code, br.resource_code

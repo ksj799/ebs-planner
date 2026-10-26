@@ -16,11 +16,11 @@ INSERT INTO bom_shift_times VALUES ('DEMO-CAL', 1, 46800, 61200);
 INSERT INTO bom_shift_times VALUES ('DEMO-CAL', 2, 61200, 3600);
 
 -- ---------- 부서 / 자원 ----------
-INSERT INTO bom_departments VALUES (11, 'ASSY',  '조립',   204, NULL);
-INSERT INTO bom_departments VALUES (12, 'MACH',  '가공',   204, NULL);
-INSERT INTO bom_departments VALUES (13, 'PACK',  '포장',   204, NULL);
-INSERT INTO bom_departments VALUES (14, 'PRESS', '프레스', 204, NULL);
-INSERT INTO bom_departments VALUES (15, 'WELD',  '용접',   204, NULL);
+INSERT INTO bom_departments VALUES (11, 'ASSY',  '생산4팀',   204, NULL);
+INSERT INTO bom_departments VALUES (12, 'MACH',  '생산1팀',   204, NULL);
+INSERT INTO bom_departments VALUES (13, 'PACK',  '생산5팀',   204, NULL);
+INSERT INTO bom_departments VALUES (14, 'PRESS', '생산2팀', 204, NULL);
+INSERT INTO bom_departments VALUES (15, 'WELD',  '생산3팀',   204, NULL);
 INSERT INTO bom_resources VALUES (101, 'ASSY-LN', '조립라인',     'HR',  204, NULL, 1);
 INSERT INTO bom_resources VALUES (102, 'CNC',     'CNC 가공기',   'HR',  204, NULL, 1);
 INSERT INTO bom_resources VALUES (103, 'PACKER',  '포장작업자',   'MIN', 204, NULL, 2);
