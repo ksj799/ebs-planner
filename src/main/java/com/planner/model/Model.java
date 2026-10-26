@@ -31,8 +31,11 @@ public final class Model {
         public long departmentId;
         public long resourceId;
         public String departmentCode;
+        public String departmentDesc;
         public String resourceCode;
         public String description;
+        /** 1=설비, 2=인원, 그 외=기타 */
+        public int resourceType;
         public String uom;
         public double capacityUnits;
         public boolean available24h;

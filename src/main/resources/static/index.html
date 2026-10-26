@@ -246,7 +246,7 @@ const I={ /* 아이콘 */
 const PAGES=[
  {g:'계획'},
  {k:'dash',t:'대시보드',i:'dash',sub:'오늘의 생산 현황'},
- {k:'plan',t:'생산계획',i:'plan',sub:'자원별 생산 일정'},
+ {k:'plan',t:'생산계획',i:'plan',sub:'작업 라인별 생산 일정'},
  {k:'mat',t:'자재 소요',i:'mat',sub:'부품 수급 현황과 구매가 필요한 품목'},
  {g:'구매 · 재고'},
  {k:'po',t:'구매 입고예정',i:'po',sub:'발주 입고 일정과 리드타임 관리'},
@@ -257,7 +257,7 @@ const PAGES=[
  {k:'his',t:'생성 이력',i:'his',sub:'작업지시 생성 내역'},
  {g:'기준정보'},
  {k:'item',t:'품목 정보',i:'item',sub:'품목별 계획 정보'},
- {k:'mas',t:'자원 · 캘린더',i:'mas',sub:'설비 능력과 근무 일정'}];
+ {k:'mas',t:'작업 라인 · 캘린더',i:'mas',sub:'설비 능력과 근무 일정'}];
 const PG=Object.fromEntries(PAGES.filter(p=>p.k).map(p=>[p.k,p]));
 
 const st={info:{},orgs:[],plan:null,ov:{},sel:new Set(),busy:0,page:PG[location.hash.slice(1)]?location.hash.slice(1):'dash',
@@ -371,7 +371,10 @@ function tq(id,v){st.t[id].q=v;$('tb-'+id).innerHTML=tbody(id)}
 function tsort(id,k){const s=st.t[id];if(s.k===k)s.d=-s.d;else{s.k=k;s.d=1}$('tb-'+id).innerHTML=tbody(id)}
 const panel=(title,desc,body,acts='',flush=true)=>`<div class="panel"><div class="ph"><h2>${title}</h2>${desc?`<span class="d">${desc}</span>`:''}<div class="acts">${acts}</div></div><div class="pb ${flush?'flush':''}">${body}</div></div>`;
 const kpi=(l,v,s,c='')=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s||'&nbsp;'}</div></div>`;
-const resName=k=>{const r=st.plan.resources.find(x=>x.key===k);return r?`${r.departmentCode}/${r.resourceCode}`:'–'};
+const deptName=r=>r.departmentDesc||r.departmentCode, lineName=r=>r.description||r.resourceCode;
+const lineLabel=r=>`${deptName(r)} / ${lineName(r)}`;
+const lineCode=r=>`${r.departmentCode} / ${r.resourceCode}${r.resourceType===2?' (인원)':r.resourceType===1?' (설비)':''}`;
+const resName=k=>{const r=st.plan.resources.find(x=>x.key===k);return r?lineLabel(r):'–'};
 function loadPct(r){const wd=st.plan.days.filter(d=>d.work).map(d=>d.date);const cap=r.hoursPerDay*wd.length;return cap?wd.reduce((s,d)=>s+(r.load[d]||0),0)/cap*100:0}
 const pbar=p=>`<div class="bar"><i class="${p>100?'ov':p>85?'hi':''}" style="width:${Math.min(p,100)}%"></i></div>`;
 function jobState(p){
@@ -401,8 +404,8 @@ V.dash=()=>{
   </div>
   <div class="two">
     ${panel('주의 필요',`${alerts.length}건`,alerts.length?`<div class="alerts">${alerts.slice(0,12).map(a=>`<div class="a"><span class="ic ${a.c}">${a.i}</span><div style="flex:1;min-width:0"><div class="b">${esc(a.t)}</div><div class="small t2">${esc(a.d)}</div></div><button class="btn sec sm" onclick="${a.q?`goPlan('${esc(a.q)}')`:`go('${a.go}')`}">보기</button></div>`).join('')}</div>`:'<div class="empty">특이사항 없음</div>')}
-    ${panel('자원 부하율',`${fd(P.start)} ~ ${fd(P.end)}`,`<table class="t"><thead><tr><th>부서/자원</th><th class="num">일 능력</th><th style="width:45%">부하</th><th class="num">%</th></tr></thead><tbody>
-      ${P.resources.map(r=>{const p=loadPct(r);return `<tr><td><span class="b">${esc(r.departmentCode)}/${esc(r.resourceCode)}</span> <span class="muted small">${esc(r.description)}</span></td><td class="num">${n0(r.hoursPerDay)}h</td><td>${pbar(p)}</td><td class="num b">${p.toFixed(0)}%</td></tr>`}).join('')}</tbody></table>`)}
+    ${panel('작업 라인 부하율',`${fd(P.start)} ~ ${fd(P.end)}`,`<table class="t"><thead><tr><th>부서 / 작업 라인</th><th class="num">일 능력</th><th style="width:45%">부하</th><th class="num">%</th></tr></thead><tbody>
+      ${P.resources.map(r=>{const p=loadPct(r);return `<tr><td title="${esc(lineCode(r))}"><span class="b">${esc(lineLabel(r))}</span>${r.resourceType===2?' '+tag('인원','gray'):''}</td><td class="num">${n0(r.hoursPerDay)}h</td><td>${pbar(p)}</td><td class="num b">${p.toFixed(0)}%</td></tr>`}).join('')}</tbody></table>`)}
   </div>`;
 };
 
@@ -421,12 +424,12 @@ function pfReset(){st.pf={q:'',res:'',st:'',kind:''};render()}
 function goPlan(q){st.pf={q,res:'',st:'',kind:''};go('plan');render()}
 function pfBar(nEx,nPl){
   const P=st.plan,f=st.pf;
-  const resOpts=[['','전체'],...P.resources.map(r=>[r.key,`${r.departmentCode}/${r.resourceCode}`]),['none','라우팅 없음']];
+  const resOpts=[['','전체'],...P.resources.map(r=>[r.key,lineLabel(r)]),['none','라우팅 없음']];
   const stOpts=[['','전체'],['late','납기지연'],['wait','자재대기'],['ok','정상'],['nort','라우팅없음']];
   const sel=(k,opts)=>`<select onchange="pfSet('${k}',this.value)">${opts.map(([v,t])=>`<option value="${v}" ${f[k]===v?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
   return `<div class="panel"><div class="pb" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <input class="search" id="pfq" style="min-width:300px;flex:1;max-width:460px" placeholder="품목, 작업지시, 수주번호, 고객으로 검색" value="${esc(f.q)}" oninput="pfSet('q',this.value)">
-    <div class="field"><label>자원</label>${sel('res',resOpts)}</div>
+    <div class="field"><label>작업 라인</label>${sel('res',resOpts)}</div>
     <div class="field"><label>상태</label>${sel('st',stOpts)}</div>
     <div class="seg">${[['','전체'],['ex','기존 작업지시'],['pl','계획 작업지시']].map(([v,t])=>`<button class="${f.kind===v?'on':''}" onclick="pfSet('kind','${v}')">${t}</button>`).join('')}</div>
     <span class="small t2">기존 <b>${nEx}</b> · 계획 <b>${nPl}</b>건${pfActive()?` <span class="muted">(전체 ${P.existing.length} · ${P.planned.length})</span>`:''}</span>
@@ -447,7 +450,7 @@ V.plan=()=>{
     const ex=exAll.filter(s=>(s.resourceKey||null)===k),pl=plAll.filter(p=>(p.resourceKey||null)===k);
     if((k===null||filtering)&&!ex.length&&!pl.length)continue;
     if(k){const r=P.resources.find(x=>x.key===k);
-      rows+=`<tr class="res"><td class="lbl">${esc(r.departmentCode)}/${esc(r.resourceCode)} <span class="muted" style="font-weight:500">· ${n0(r.hoursPerDay)}h/일</span></td>${days.map(d=>{const u=(r.load[d.date]||0)/r.hoursPerDay*100;
+      rows+=`<tr class="res"><td class="lbl" title="${esc(lineCode(r))}">${esc(lineLabel(r))}${r.resourceType===2?' '+tag('인원','gray'):''} <span class="muted" style="font-weight:500">· ${n0(r.hoursPerDay)}h/일</span></td>${days.map(d=>{const u=(r.load[d.date]||0)/r.hoursPerDay*100;
         const bg=u>100.5?'var(--bad2)':u>85?'var(--warn2)':u>0?'var(--accent2)':'';const fg=u>100.5?'var(--bad)':u>85?'var(--warn)':'var(--accent-t)';
         return `<td class="${d.work?'':'we'}">${u?`<span class="ld" style="background:${bg};color:${fg}">${u.toFixed(0)}%</span>`:''}</td>`}).join('')}</tr>`;
     }else rows+=`<tr class="res"><td class="lbl">라우팅 없음 <span class="muted" style="font-weight:500">· 부하 미반영</span></td>${days.map(d=>`<td class="${d.work?'':'we'}"></td>`).join('')}</tr>`;
@@ -460,7 +463,7 @@ V.plan=()=>{
     {k:'orderNumber',l:'수주',h:p=>`<span class="b">${esc(p.orderNumber)}-${esc(p.lineRef)}</span>`},
     {k:'customer',l:'고객'},
     {k:'itemCode',l:'품목',h:p=>item(p.itemCode,p.itemDesc,p.itemId)},
-    {k:'resourceKey',l:'병목자원',h:p=>p.resourceKey?esc(resName(p.resourceKey)):'<span class="muted">–</span>'},
+    {k:'resourceKey',l:'작업 라인',h:p=>p.resourceKey?esc(resName(p.resourceKey)):'<span class="muted">–</span>'},
     {k:'suggestedQty',l:'제안',num:1,h:p=>n0(p.suggestedQty)},
     {k:'qty',l:'수량',num:1,h:p=>`<input class="inp n ${st.ov[p.id]?.qty!=null?'set':''}" type="number" min="0" step="any" value="${st.ov[p.id]?.qty??''}" placeholder="${p.qty}" onchange="setOv('${p.id}','qty',this.value)">`},
     {k:'start',l:'시작',h:p=>`<input class="inp ${st.ov[p.id]?.start?'set':''}" type="date" value="${st.ov[p.id]?.start||p.start||''}" onchange="setOv('${p.id}','start',this.value)">`},
@@ -471,7 +474,7 @@ V.plan=()=>{
     {k:'late',l:'상태',v:p=>p.late?0:p.materialReady?1:2,h:jobState},
     {k:'note',l:'비고',h:p=>`<span class="small muted">${esc(p.note||'')}</span>`}];
   const I2=st.info,n=st.sel.size;
-  const gantt=rows?`<div class="gw" data-keep="gantt"><table class="g"><thead><tr><th class="lbl">자원 / 작업지시</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+  const gantt=rows?`<div class="gw" data-keep="gantt"><table class="g"><thead><tr><th class="lbl">부서 / 작업 라인</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
     :'<div class="empty">조회조건에 맞는 작업지시가 없습니다</div>';
   return pfBar(exAll.length,plAll.length)
    +panel('생산 일정',`${fd(P.start)} ~ ${fd(P.end)}`,gantt,legend)
@@ -620,7 +623,7 @@ V.job=()=>{
     {k:'ref',l:'작업지시',h:s=>`<span class="b code">${esc(s.ref)}</span>`},{k:'itemCode',l:'품목',h:s=>item(s.itemCode,s.itemDesc,s.itemId)},
     {k:'status',l:'상태',h:s=>tag(s.status,s.statusType===3?'ok':s.statusType===6?'bad':'gray')},{k:'remainQty',l:'잔량',num:1,h:s=>n0(s.remainQty)},
     {k:'start',l:'시작',h:s=>fd(s.start)},{k:'completion',l:'완료예정',h:s=>fd(s.completion)},
-    {k:'resourceKey',l:'병목자원',h:s=>s.resourceKey?esc(resName(s.resourceKey)):'–'},{k:'note',l:'비고',h:s=>`<span class="small muted">${esc(s.note||'')}</span>`}];
+    {k:'resourceKey',l:'작업 라인',h:s=>s.resourceKey?esc(resName(s.resourceKey)):'–'},{k:'note',l:'비고',h:s=>`<span class="small muted">${esc(s.note||'')}</span>`}];
   return panel('미완료 작업지시','미해제·해제·보류 상태',tbl('job',c,st.plan.existing,{sort:'completion',ph:'작업지시·품목 검색'}));
 };
 
@@ -638,14 +641,14 @@ V.his=()=>{
 V.mas=()=>{
   const M=st.cache.master;
   if(!M)return '<div class="empty">불러오는 중…</div>';
-  const rc=[{k:'departmentCode',l:'부서',h:r=>`<span class="b">${esc(r.departmentCode)}</span>`},{k:'resourceCode',l:'자원'},{k:'description',l:'설명'},{k:'uom',l:'UOM'},
+  const rc=[{k:'departmentCode',l:'부서',h:r=>`<span class="b">${esc(r.departmentCode)}</span>`},{k:'resourceCode',l:'작업 라인'},{k:'description',l:'이름'},{k:'resourceType',l:'유형',h:r=>r.resourceType===2?'인원':r.resourceType===1?'설비':'기타'},{k:'uom',l:'UOM'},
     {k:'capacityUnits',l:'능력단위',num:1,h:r=>n0(r.capacityUnits)},{k:'available24h',l:'24시간',h:r=>r.available24h?'Y':''},
     {k:'shiftUnitHours',l:'교대시간×단위',num:1,h:r=>n0(r.shiftUnitHours)},{k:'hoursPerDay',l:'일 능력(h)',num:1,h:r=>`<span class="b">${n0(r.hoursPerDay)}</span>`}];
-  const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'병목 부서/자원',h:i=>`${esc(i.departmentCode)}/${esc(i.resourceCode)}`},
+  const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'주 작업 라인',h:i=>`${esc(i.departmentCode)} / ${esc(i.resourceCode)}`},
     {k:'hoursPerUnit',l:'개당(h)',num:1,h:i=>Number(i.hoursPerUnit).toFixed(4)},{k:'setupHours',l:'셋업(h)',num:1,h:i=>n0(i.setupHours)},
-    {k:'maxPerDay',l:'일 최대',num:1,h:i=>n0(Math.floor(i.maxPerDay))},{k:'operationCount',l:'공정자원',num:1}];
-  return panel('자원 능력','부서별 설비의 하루 가동 시간',tbl('mres',rc,M.resources,{search:false}))
-   +panel('품목별 병목 자원','품목마다 가장 오래 걸리는 공정',tbl('mrt',ic,M.routings,{ph:'품목 검색'}))
+    {k:'maxPerDay',l:'일 최대',num:1,h:i=>n0(Math.floor(i.maxPerDay))},{k:'operationCount',l:'공정 수',num:1}];
+  return panel('작업 라인 능력','부서별 작업 라인의 하루 가동 시간',tbl('mres',rc,M.resources,{search:false}))
+   +panel('품목별 주 작업 라인','품목마다 가장 오래 걸리는 공정',tbl('mrt',ic,M.routings,{ph:'품목 검색'}))
    +panel('휴무일','앞으로 90일',`<div style="display:flex;flex-wrap:wrap;gap:6px">${M.nonWorkDays.map(d=>{const w=new Date(d+'T00:00').getDay();return tag(fd(d),w===0||w===6?'gray':'warn')}).join('')}</div>`,'',false);
 };
 

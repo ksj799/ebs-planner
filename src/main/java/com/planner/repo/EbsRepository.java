@@ -97,8 +97,10 @@ public class EbsRepository {
             r.resourceId = rs.getLong("resource_id");
             r.key = key(r.departmentId, r.resourceId);
             r.departmentCode = rs.getString("department_code");
+            r.departmentDesc = rs.getString("department_desc");
             r.resourceCode = rs.getString("resource_code");
             r.description = rs.getString("description");
+            r.resourceType = rs.getInt("resource_type");
             r.uom = rs.getString("unit_of_measure");
             r.capacityUnits = rs.getDouble("capacity_units");
             r.available24h = rs.getInt("available_24_hours_flag") == 1;

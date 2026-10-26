@@ -8,7 +8,7 @@ CREATE TABLE bom_shift_times (calendar_code VARCHAR2(10), shift_num NUMBER, from
 CREATE TABLE bom_departments (department_id NUMBER PRIMARY KEY, department_code VARCHAR2(10), description VARCHAR2(240),
   organization_id NUMBER, disable_date DATE);
 CREATE TABLE bom_resources (resource_id NUMBER PRIMARY KEY, resource_code VARCHAR2(10), description VARCHAR2(240),
-  unit_of_measure VARCHAR2(3), organization_id NUMBER, disable_date DATE);
+  unit_of_measure VARCHAR2(3), organization_id NUMBER, disable_date DATE, resource_type NUMBER);
 CREATE TABLE bom_department_resources (department_id NUMBER, resource_id NUMBER, capacity_units NUMBER, available_24_hours_flag NUMBER);
 CREATE TABLE bom_resource_shifts (department_id NUMBER, resource_id NUMBER, shift_num NUMBER, capacity_units NUMBER);
 CREATE TABLE mtl_system_items_b (inventory_item_id NUMBER, organization_id NUMBER, segment1 VARCHAR2(40), description VARCHAR2(240),
