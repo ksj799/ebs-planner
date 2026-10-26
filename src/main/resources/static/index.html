@@ -273,7 +273,9 @@ async function api(path,opt){
   const slowTimer=setTimeout(()=>{if(!slowToast){slowToast=document.createElement('div');slowToast.className='toast';
     slowToast.textContent='잠시만 기다려 주세요. 처음 접속하면 1분 정도 걸릴 수 있습니다.';$('toasts').appendChild(slowToast)}},4000);
   try{
-    const r=await fetch(path,opt);const t=await r.text();let j=null;
+    const r=await fetch(path,opt);
+    if(r.status===401){location.href='/login.html';return new Promise(()=>{})} // 로그인 만료 → 로그인 화면
+    const t=await r.text();let j=null;
     try{j=t?JSON.parse(t):null}catch(e){j={message:t}}
     if(!r.ok)throw new Error((j&&j.message)||r.statusText);
     return j;
@@ -282,9 +284,10 @@ async function api(path,opt){
     if(--st.busy===0){$('prog').hidden=true;if(slowToast){slowToast.remove();slowToast=null}}
   }
 }
-const send=(m,p,b)=>api(p,{method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+const send=(m,p,b)=>api(p,{method:m,headers:{'Content-Type':'application/json','X-Requested-With':'planner'},body:JSON.stringify(b)});
 const orgId=()=>Number($('org').value);
 const req=()=>({orgId:orgId(),start:$('start').value,days:Number($('days').value),netOnhand:$('onhand').checked,overrides:st.ov});
+async function logout(){try{await fetch('/api/logout',{method:'POST',headers:{'X-Requested-With':'planner'}})}catch(e){}location.href='/login.html'}
 function toast(m,bad){const e=document.createElement('div');e.className='toast'+(bad?' bad':'');e.textContent=m;$('toasts').appendChild(e);setTimeout(()=>e.remove(),bad?7000:3500)}
 
 async function init(){
@@ -300,7 +303,9 @@ async function init(){
     b.style.cssText=`background:${st.info.banner?'#4f46e5':'#dc2626'};color:#fff;text-align:center;padding:7px 12px;font-weight:700;font-size:13px`;
     b.textContent=bannerText;document.querySelector('.main').prepend(b)}
   $('foot').innerHTML=`<div class="conn"><span class="dot ${st.info.demo?'demo':''}"></span>${st.info.demo?'데모':'EBS 연결됨'}</div>
-    <div class="muted" style="margin-top:6px">${st.info.readOnly||!st.info.userConfigured?'조회 전용':'SOURCE_CODE '+esc(st.info.sourceCode)}</div>`;
+    <div class="muted" style="margin-top:6px">${st.info.readOnly||!st.info.userConfigured?'조회 전용':'SOURCE_CODE '+esc(st.info.sourceCode)}</div>
+    ${st.info.auth&&st.info.user?`<div style="margin-top:10px;display:flex;align-items:center;gap:8px"><span style="color:#e2e8f0">${esc(st.info.user)}</span>
+      <a style="margin-left:auto;cursor:pointer;color:#94a3b8;text-decoration:underline" onclick="logout()">로그아웃</a></div>`:''}`;
   if(!st.orgs.length){$('view').innerHTML='<div class="banner bad">WIP 사용 조직(WIP_PARAMETERS)이 없습니다.</div>';return}
   $('org').onchange=()=>{st.ov={};st.sel.clear();st.cache={};st.it.list=null;st.it.id=null;st.it.d=null;loadPlan()};
   ['start','days','onhand'].forEach(id=>$(id).onchange=()=>loadPlan());

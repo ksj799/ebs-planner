@@ -69,8 +69,11 @@ public class ApiController {
     }
 
     @GetMapping("/info")
-    public Map<String, Object> info() {
+    public Map<String, Object> info(jakarta.servlet.http.HttpServletRequest req) {
         Map<String, Object> m = new LinkedHashMap<>();
+        jakarta.servlet.http.HttpSession s = req.getSession(false);
+        m.put("auth", "true".equals(env.getProperty("planner.auth.enabled")));
+        m.put("user", s == null ? null : s.getAttribute(com.planner.auth.AuthFilter.SESSION_USER));
         m.put("demo", env.acceptsProfiles(Profiles.of("demo")));
         m.put("readOnly", true); // EBS 반영 로직 주석 처리됨 (ReleaseService, WipInterfaceRepository)
         m.put("banner", props.getBanner());
@@ -192,7 +195,11 @@ public class ApiController {
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, String>> db(DataAccessException e) {
         log.error("DB 오류", e);
+        // 사내 공유 모드에서는 DB 상세 오류(테이블명·ORA 메시지)를 화면에 보내지 않는다
+        String msg = "true".equals(env.getProperty("planner.auth.enabled"))
+                ? "데이터를 불러오지 못했습니다. 관리자에게 문의해 주세요."
+                : "DB 오류: " + e.getMostSpecificCause().getMessage();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Collections.singletonMap("message", "DB 오류: " + e.getMostSpecificCause().getMessage()));
+                .body(Collections.singletonMap("message", msg));
     }
 }
