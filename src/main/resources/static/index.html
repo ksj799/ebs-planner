@@ -641,10 +641,10 @@ V.his=()=>{
 V.mas=()=>{
   const M=st.cache.master;
   if(!M)return '<div class="empty">불러오는 중…</div>';
-  const rc=[{k:'departmentCode',l:'부서',h:r=>`<span class="b">${esc(r.departmentCode)}</span>`},{k:'resourceCode',l:'작업 라인'},{k:'description',l:'이름'},{k:'resourceType',l:'유형',h:r=>r.resourceType===2?'인원':r.resourceType===1?'설비':'기타'},{k:'uom',l:'UOM'},
+  const rc=[{k:'departmentDesc',l:'부서',v:r=>deptName(r),h:r=>`<span class="b">${esc(deptName(r))}</span> <span class="muted small">${esc(r.departmentCode)}</span>`},{k:'description',l:'작업 라인',v:r=>lineName(r),h:r=>`${esc(lineName(r))} <span class="muted small">${esc(r.resourceCode)}</span>`},{k:'resourceType',l:'유형',h:r=>r.resourceType===2?'인원':r.resourceType===1?'설비':'기타'},{k:'uom',l:'UOM'},
     {k:'capacityUnits',l:'능력단위',num:1,h:r=>n0(r.capacityUnits)},{k:'available24h',l:'24시간',h:r=>r.available24h?'Y':''},
     {k:'shiftUnitHours',l:'교대시간×단위',num:1,h:r=>n0(r.shiftUnitHours)},{k:'hoursPerDay',l:'일 능력(h)',num:1,h:r=>`<span class="b">${n0(r.hoursPerDay)}</span>`}];
-  const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'주 작업 라인',h:i=>`${esc(i.departmentCode)} / ${esc(i.resourceCode)}`},
+  const ic=[{k:'itemCode',l:'제조품목',h:i=>item(i.itemCode,i.itemDesc,i.itemId)},{k:'resourceCode',l:'주 작업 라인',h:i=>{const r=M.resources.find(x=>x.key===i.resourceKey);return r?`${esc(lineLabel(r))}`:`${esc(i.departmentCode)} / ${esc(i.resourceCode)}`}},
     {k:'hoursPerUnit',l:'개당(h)',num:1,h:i=>Number(i.hoursPerUnit).toFixed(4)},{k:'setupHours',l:'셋업(h)',num:1,h:i=>n0(i.setupHours)},
     {k:'maxPerDay',l:'일 최대',num:1,h:i=>n0(Math.floor(i.maxPerDay))},{k:'operationCount',l:'공정 수',num:1}];
   return panel('작업 라인 능력','부서별 작업 라인의 하루 가동 시간',tbl('mres',rc,M.resources,{search:false}))
